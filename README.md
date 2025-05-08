@@ -1,8 +1,3 @@
-# **Firebase Studio**
-
-This is a **Next.js starter** in Firebase Studio.
-
----
 
 ## **About the App**
 
