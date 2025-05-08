@@ -1,0 +1,76 @@
+{
+  "topics": [
+    {
+      "id": "1",
+      "title": "General Rocket Discussion",
+      "description": "Talk about anything rocket-related!",
+      "postCount": 3,
+      "lastPostTimestamp": "2025-05-07T12:07:08.151Z"
+    },
+    {
+      "id": "2",
+      "title": "SpaceX Starship Updates",
+      "description": "Latest news and discussions on Starship development.",
+      "postCount": 1,
+      "lastPostTimestamp": "2024-07-29T11:00:00Z"
+    },
+    {
+      "id": "3",
+      "title": "Rocket Engine Technology",
+      "description": "Deep dive into propulsion systems.",
+      "postCount": 0,
+      "lastPostTimestamp": null
+    },
+    {
+      "id": "4",
+      "title": "Upcoming Launches",
+      "description": "Discuss scheduled launches and missions.",
+      "postCount": 1,
+      "lastPostTimestamp": "2025-05-04T07:33:02.563Z"
+    },
+    {
+      "id": "5",
+      "title": "Space History & Milestones",
+      "description": "Remembering the giants of space exploration.",
+      "postCount": 0,
+      "lastPostTimestamp": null
+    }
+  ],
+  "posts": [
+    {
+      "postId": "post1",
+      "topicId": "1",
+      "authorId": "defaultUser123",
+      "content": "Welcome to the general discussion! What's your favorite rocket?",
+      "timestamp": "2024-07-29T10:00:00Z"
+    },
+    {
+      "postId": "post2",
+      "topicId": "2",
+      "authorId": "anotherUser456",
+      "content": "The latest Starship test flight was incredible!",
+      "timestamp": "2024-07-29T11:00:00Z"
+    },
+    {
+      "postId": "post3",
+      "topicId": "1",
+      "authorId": "defaultUser123",
+      "content": "I think the Raptor engine is a marvel of engineering.",
+      "timestamp": "2024-07-29T12:00:00Z"
+    },
+    {
+      "authorId": "defaultUser123",
+      "content": "no new launched here  niw",
+      "topicId": "4",
+      "postId": "post1746343982563dbf0b5b539d08",
+      "timestamp": "2025-05-04T07:33:02.563Z"
+    },
+    {
+      "authorId": "defaultUser123",
+      "content": "SpaceX Falcon 9 rocket launches 28 Starlink satellites to orbit from Florida ",
+      "topicId": "1",
+      "postId": "post17466196281513ceb496218889",
+      "timestamp": "2025-05-07T12:07:08.151Z"
+    }
+  ]
+}
