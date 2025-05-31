@@ -1,5 +1,6 @@
+
 // src/app/explore/page.tsx
-'use client'; // Mark as client component for state and effects
+'use client'; 
 
 import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
@@ -8,24 +9,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Rocket, Calendar, Gauge, Globe, Building, CheckCircle, XCircle, HelpCircle, Search, FilterX } from 'lucide-react';
 import Image from 'next/image';
-import { getRockets, type Rocket as RocketType, type RocketStatus } from '@/services/rocket-data'; // Adjust path as needed
+import { getRockets, type Rocket as RocketType, type RocketStatus, slugify } from '@/services/rocket-data';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link'; // Import Link for navigation
+import Link from 'next/link'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { useToast } from '@/hooks/use-toast';
 
-// Helper to format numbers (e.g., success rate)
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const explorePageUrl = `${siteUrl}/explore`;
+
+
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined) return 'N/A';
   return num % 1 === 0 ? num.toString() : num.toFixed(1);
 };
 
-// Helper to generate slug
-const slugify = (name: string): string => name.toLowerCase().replace(/\s+/g, '-');
-
-
-// Rocket Card Component
 interface RocketCardProps {
   rocket: RocketType;
 }
@@ -40,27 +39,27 @@ function RocketCard({ rocket }: RocketCardProps) {
     }
   };
 
-  const slug = slugify(rocket.name);
+  const rocketSlug = slugify(rocket.name);
 
   return (
     <Card className={`flex flex-col h-full hover:shadow-lg transition-shadow duration-200 animate-launch group relative`}>
       <CardHeader>
         {rocket.imageUrl && (
-          <Link href={`/explore/${slug}`} passHref className="block relative h-48 w-full mb-4 overflow-hidden rounded-t-md">
+          <Link href={`/explore/${rocketSlug}`} passHref className="block relative h-48 w-full mb-4 overflow-hidden rounded-t-md">
               <Image
-                src={rocket.imageUrl || 'https://picsum.photos/400/300'}
-                alt={`Image of ${rocket.name}`}
-                layout="fill"
-                objectFit="cover"
+                src={rocket.imageUrl || 'https://placehold.co/400x300.png'}
+                alt={`Image of ${rocket.name} rocket`}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                style={{ objectFit: 'cover' }}
                 className="transition-transform duration-300 group-hover:scale-105"
                 data-ai-hint={`rocket ${rocket.type}`}
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                priority // Prioritize images in the initial viewport if applicable
+                priority 
               />
           </Link>
         )}
         <CardTitle className="flex items-center justify-between">
-          <Link href={`/explore/${slug}`} passHref className="hover:text-primary transition-colors">
+          <Link href={`/explore/${rocketSlug}`} passHref className="hover:text-primary transition-colors">
             {rocket.name}
           </Link>
           <Badge variant={rocket.status === 'active' ? 'default' : rocket.status === 'past' ? 'destructive' : 'secondary'} className="capitalize ml-2 shrink-0">
@@ -86,7 +85,7 @@ function RocketCard({ rocket }: RocketCardProps) {
          </div>
       </CardFooter>
         <CardFooter>
-            <Link href={`/explore/${slug}`} passHref className="w-full">
+            <Link href={`/explore/${rocketSlug}`} passHref className="w-full">
                <Button variant="outline" size="sm" className="w-full">View Details</Button>
            </Link>
          </CardFooter>
@@ -94,7 +93,6 @@ function RocketCard({ rocket }: RocketCardProps) {
   );
 }
 
-// Skeleton Loader for Rocket Card
 function RocketCardSkeleton() {
   return (
     <Card className="flex flex-col h-full">
@@ -121,8 +119,6 @@ function RocketCardSkeleton() {
   );
 }
 
-
-// Main Explore Page Component
 export default function ExplorePage() {
   const [rockets, setRockets] = useState<RocketType[]>([]);
   const [filteredRockets, setFilteredRockets] = useState<RocketType[]>([]);
@@ -134,14 +130,46 @@ export default function ExplorePage() {
   const [selectedLiftType, setSelectedLiftType] = useState<string>('all');
   const { toast } = useToast();
 
-  // Fetch rockets on mount
+  useEffect(() => {
+    document.title = 'Explore All Rockets - Launch Vehicles Database | Rocketpedia';
+    
+    // Add canonical link tag
+    let canonicalLink = document.querySelector("link[rel='canonical']");
+    if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', explorePageUrl);
+
+    // Add OpenGraph and Twitter meta tags
+    const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+        let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+        if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(type, key);
+            document.head.appendChild(element);
+        }
+        element.setAttribute('content', content);
+    };
+
+    setMetaTag('property', 'og:title', 'Explore All Rockets | Rocketpedia');
+    setMetaTag('property', 'og:description', 'Browse our comprehensive database of rockets and launch vehicles.');
+    setMetaTag('property', 'og:url', explorePageUrl);
+    setMetaTag('property', 'og:image', `${siteUrl}/og-explore.png`);
+    setMetaTag('name', 'twitter:title', 'Explore All Rockets | Rocketpedia');
+    setMetaTag('name', 'twitter:description', 'Browse our comprehensive database of rockets and launch vehicles.');
+    setMetaTag('name', 'twitter:image', `${siteUrl}/twitter-explore.png`);
+
+  }, []);
+
   useEffect(() => {
     async function loadRockets() {
       setLoading(true);
       try {
         const allRockets = await getRockets();
         setRockets(allRockets);
-        setFilteredRockets(allRockets); // Initialize filtered list
+        setFilteredRockets(allRockets); 
       } catch (error) {
         console.error("Failed to fetch rockets:", error);
         toast({
@@ -156,7 +184,6 @@ export default function ExplorePage() {
     loadRockets();
   }, [toast]);
 
-  // Memoize extraction of filter options
   const { availableYears, availableCountries, availableLiftTypes } = useMemo(() => {
     const years = new Set<string>();
     const countries = new Set<string>();
@@ -175,7 +202,7 @@ export default function ExplorePage() {
         else if (typeLower.includes('medium')) liftTypes.add('Medium-lift');
         else if (typeLower.includes('heavy') && !typeLower.includes('super')) liftTypes.add('Heavy-lift');
         else if (typeLower.includes('super heavy')) liftTypes.add('Super heavy-lift');
-        else liftTypes.add(rocket.type); // Add original type if not categorized
+        else liftTypes.add(rocket.type); 
       }
     });
 
@@ -186,8 +213,6 @@ export default function ExplorePage() {
     };
   }, [rockets]);
 
-
- // Filter rockets based on all criteria
  useEffect(() => {
     let results = rockets;
 
@@ -211,7 +236,7 @@ export default function ExplorePage() {
            case 'Medium-lift': return typeLower.includes('medium');
            case 'Heavy-lift': return typeLower.includes('heavy') && !typeLower.includes('super');
            case 'Super heavy-lift': return typeLower.includes('super heavy');
-           default: return rocket.type === selectedLiftType; // Match exact type for uncategorized
+           default: return rocket.type === selectedLiftType; 
          }
        });
      }
@@ -229,6 +254,58 @@ export default function ExplorePage() {
     setFilteredRockets(results);
   }, [searchTerm, selectedStatus, selectedYear, selectedCountry, selectedLiftType, rockets]);
 
+  useEffect(() => {
+    if (filteredRockets.length > 0 && !loading) {
+      const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: 'Explore All Rockets - Launch Vehicles Database',
+        description: 'Browse and filter a comprehensive database of rockets and launch vehicles from around the world. Discover specifications, history, and operators.',
+        url: explorePageUrl,
+        mainEntity: {
+          '@type': 'ItemList',
+          itemListElement: filteredRockets.map((rocket, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            item: {
+              '@type': 'Product', // Or TechArticle if more appropriate and you have detail pages
+              name: rocket.name,
+              description: rocket.description,
+              image: rocket.imageUrl,
+              url: `${siteUrl}/explore/${slugify(rocket.name)}`,
+              category: rocket.type,
+              manufacturer: {
+                '@type': 'Organization',
+                name: rocket.operator,
+              },
+              countryOfOrigin: {
+                '@type': 'Country',
+                name: rocket.country,
+              },
+              // Add more properties like SKU, offers if they were actual products for sale
+            },
+          })),
+        },
+      };
+
+      let script = document.getElementById('explore-rockets-json-ld');
+      if (!script) {
+        script = document.createElement('script');
+        script.id = 'explore-rockets-json-ld';
+        script.type = 'application/ld+json';
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify(jsonLd);
+
+      return () => {
+        const ldScript = document.getElementById('explore-rockets-json-ld');
+        if (ldScript) {
+          ldScript.remove();
+        }
+      };
+    }
+  }, [filteredRockets, loading]);
+
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -243,10 +320,7 @@ export default function ExplorePage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6 text-center">Explore Rockets</h1>
-
-      {/* Search and Filter Controls */}
-      {/* Removed sticky top-16 z-40 */}
-      <div className="mb-8 p-4 border rounded-lg bg-card/50 shadow-sm">
+      <div className="mb-8 p-4 border rounded-lg bg-card/50 shadow-sm sticky top-[70px] z-40 backdrop-blur supports-[backdrop-filter]:bg-card/70">
          <div className="flex flex-col sm:flex-row gap-4 mb-4">
              <div className="relative flex-grow">
                  <Label htmlFor="search" className="sr-only">Search Rockets</Label>
@@ -266,8 +340,6 @@ export default function ExplorePage() {
                 </Button>
              )}
          </div>
-
-         {/* Filter Dropdowns */}
          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
              <div>
                  <Label htmlFor="filter-status" className="text-xs text-muted-foreground">Status</Label>
@@ -324,18 +396,14 @@ export default function ExplorePage() {
              </div>
          </div>
       </div>
-
-       {/* Rocket Grid */}
        <RocketGrid
          loading={loading}
          rockets={filteredRockets}
         />
-
     </div>
   );
 }
 
-// Extracted Rocket Grid component for clarity
 interface RocketGridProps {
   loading: boolean;
   rockets: RocketType[];
@@ -363,7 +431,7 @@ function RocketGrid({ loading, rockets }: RocketGridProps) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
       {rockets.map((rocket) => (
         <RocketCard
-          key={rocket.name}
+          key={rocket.id} 
           rocket={rocket}
         />
       ))}

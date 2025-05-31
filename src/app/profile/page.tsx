@@ -9,38 +9,40 @@ import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+// import { Label } from '@/components/ui/label'; // No longer directly used, FormLabel preferred
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { User, Edit3, Save, Loader2, AlertCircle, MessageSquare, CornerDownRight } from 'lucide-react';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { getUserProfile, updateUserProfile, type UserProfile, getCurrentUserId, type UserProfilePost } from '@/services/user-data';
 import { getPostsByUser } from '@/services/forum-data';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
+// import { Separator } from '@/components/ui/separator'; // Not used
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Schema for editing the profile
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const profilePageUrl = `${siteUrl}/profile`; // Assuming profile is unique per user in a real app, but generic for this example
+
+
 const ProfileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters.').max(30, 'Username cannot exceed 30 characters.'),
-  bio: z.string().max(200, 'Bio cannot exceed 200 characters.').optional().nullable(), // Allow null for empty bio
+  bio: z.string().max(200, 'Bio cannot exceed 200 characters.').optional().nullable(), 
 });
 
-// Skeleton Loader for Profile Page
 function ProfilePageSkeleton() {
   return (
     <div className="container mx-auto px-4 py-12">
       <Card className="max-w-2xl mx-auto">
         <CardHeader className="items-center text-center border-b pb-6">
-          <Skeleton className="h-32 w-32 rounded-full mb-4" /> {/* Larger avatar */}
-          <Skeleton className="h-8 w-48 mb-2" /> {/* Username */}
-          <Skeleton className="h-5 w-64" /> {/* Bio placeholder */}
+          <Skeleton className="h-32 w-32 rounded-full mb-4" /> 
+          <Skeleton className="h-8 w-48 mb-2" /> 
+          <Skeleton className="h-5 w-64" /> 
         </CardHeader>
         <CardContent className="pt-8 space-y-6">
            <div className="flex items-center justify-between">
-             <Skeleton className="h-7 w-36" /> {/* "My Posts" heading */}
-             <Skeleton className="h-9 w-28" /> {/* Edit button skeleton */}
+             <Skeleton className="h-7 w-36" /> 
+             <Skeleton className="h-9 w-28" /> 
            </div>
            <div className="space-y-4">
                 <ProfilePostSkeleton />
@@ -52,12 +54,11 @@ function ProfilePageSkeleton() {
   );
 }
 
-// Skeleton for a single post item in the profile
 function ProfilePostSkeleton() {
     return (
         <div className="flex flex-col p-4 border rounded-lg bg-muted/20 animate-pulse space-y-2">
-            <Skeleton className="h-4 w-3/4" /> {/* Post content snippet */}
-            <Skeleton className="h-3 w-1/4" /> {/* Timestamp */}
+            <Skeleton className="h-4 w-3/4" /> 
+            <Skeleton className="h-3 w-1/4" /> 
         </div>
     );
 }
@@ -100,6 +101,72 @@ export default function ProfilePage() {
    }, [toast]);
 
   useEffect(() => {
+    if (userId) { // Only run if userId is available
+        document.title = `User Profile - ${userProfile?.username || 'Loading...'} | Rocketpedia`;
+
+        let canonicalLink = document.querySelector("link[rel='canonical']");
+        if (!canonicalLink) {
+            canonicalLink = document.createElement('link');
+            canonicalLink.setAttribute('rel', 'canonical');
+            document.head.appendChild(canonicalLink);
+        }
+        canonicalLink.setAttribute('href', profilePageUrl); // Use generic profile URL for now
+
+        const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+            let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+            if (!element) {
+                element = document.createElement('meta');
+                element.setAttribute(type, key);
+                document.head.appendChild(element);
+            }
+            element.setAttribute('content', content);
+        };
+
+        setMetaTag('property', 'og:title', `User Profile - ${userProfile?.username || 'User'} | Rocketpedia`);
+        setMetaTag('property', 'og:description', `View ${userProfile?.username || 'user'}'s profile and activity on Rocketpedia.`);
+        setMetaTag('property', 'og:url', profilePageUrl);
+        setMetaTag('property', 'og:image', userProfile?.avatarUrl || `${siteUrl}/og-profile-default.png`);
+        setMetaTag('name', 'twitter:title', `User Profile - ${userProfile?.username || 'User'} | Rocketpedia`);
+        setMetaTag('name', 'twitter:description', `View ${userProfile?.username || 'user'}'s profile on Rocketpedia.`);
+        setMetaTag('name', 'twitter:image', userProfile?.avatarUrl || `${siteUrl}/twitter-profile-default.png`);
+        
+        // For ProfilePage schema
+        const jsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'ProfilePage',
+          name: `${userProfile?.username || 'User Profile'} on Rocketpedia`,
+          url: profilePageUrl, // In a real app, this might be user-specific like /profile/username
+          mainEntity: {
+            '@type': 'Person',
+            name: userProfile?.username || 'User',
+            description: userProfile?.bio || 'Rocketpedia community member.',
+            image: userProfile?.avatarUrl,
+            // identifier: userId, // If you have a public identifier
+          },
+          isPartOf: {
+            '@type': 'WebSite',
+            url: siteUrl,
+            name: 'Rocketpedia'
+          }
+        };
+        
+        let script = document.getElementById('profile-page-json-ld');
+        if (!script) {
+          script = document.createElement('script');
+          script.id = 'profile-page-json-ld';
+          script.type = 'application/ld+json';
+          document.head.appendChild(script);
+        }
+        script.textContent = JSON.stringify(jsonLd);
+
+        return () => { // Cleanup JSON-LD
+            const ldScript = document.getElementById('profile-page-json-ld');
+            if (ldScript) ldScript.remove();
+        };
+    }
+  }, [userId, userProfile]); // Re-run when userProfile updates (e.g., username loaded)
+
+  useEffect(() => {
     if (!userId) return;
 
     async function fetchProfileAndPosts() {
@@ -139,7 +206,7 @@ export default function ProfilePage() {
       }
     }
     fetchProfileAndPosts();
-  }, [userId, toast, form]);
+  }, [userId, toast, form]); // form removed from deps, form.reset called inside if profile
 
   async function onSubmit(data: z.infer<typeof ProfileSchema>) {
     if (!userId) {
@@ -152,7 +219,7 @@ export default function ProfilePage() {
       const updatedProfile = await updateUserProfile(userId, { username: data.username, bio: data.bio });
       if (updatedProfile) {
         setUserProfile(updatedProfile);
-         form.reset({
+         form.reset({ // Reset form with new data
            username: updatedProfile.username,
            bio: updatedProfile.bio || '',
          });
@@ -343,4 +410,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

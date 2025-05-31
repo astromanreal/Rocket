@@ -2,18 +2,22 @@
 // src/app/merch/page.tsx
 'use client';
 
+import type { Metadata } from 'next'; // Keep for reference
 import { useState, useEffect, useMemo } from 'react';
 import { getMerchItems, type MerchItem, type MerchType } from '@/data/merch-data';
 import { MerchCard } from '@/components/merch-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, FilterX, Package } from 'lucide-react';
+import { ShoppingCart, FilterX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Card } from '@/components/ui/card'; // Import Card for Skeleton
+import { Card } from '@/components/ui/card'; 
 import { Button } from '@/components/ui/button';
 
-// Skeleton Loader for Merch Card
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const merchPageUrl = `${siteUrl}/merch`;
+
+
 function MerchCardSkeleton() {
   return (
     <Card className="flex flex-col h-full overflow-hidden">
@@ -38,14 +42,46 @@ export default function MerchPage() {
   const [selectedType, setSelectedType] = useState<MerchType | 'all'>('all');
   const { toast } = useToast();
 
-  // Fetch merch items on mount
+  useEffect(() => {
+    document.title = 'Rocket Merch & Collectibles Store | Rocketpedia';
+    
+    // Add canonical link tag
+    let canonicalLink = document.querySelector("link[rel='canonical']");
+    if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', merchPageUrl);
+
+    // Add OpenGraph and Twitter meta tags
+    const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+        let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+        if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(type, key);
+            document.head.appendChild(element);
+        }
+        element.setAttribute('content', content);
+    };
+
+    setMetaTag('property', 'og:title', 'Rocket Merch & Collectibles Store | Rocketpedia');
+    setMetaTag('property', 'og:description', 'Shop exclusive rocket-themed merchandise, collectibles, apparel, posters, and engineering art. Perfect gifts for space enthusiasts!');
+    setMetaTag('property', 'og:url', merchPageUrl);
+    setMetaTag('property', 'og:image', `${siteUrl}/og-merch.png`); // Placeholder image
+    setMetaTag('name', 'twitter:title', 'Rocket Merch & Collectibles Store | Rocketpedia');
+    setMetaTag('name', 'twitter:description', 'Find unique space-themed gifts and collectibles.');
+    setMetaTag('name', 'twitter:image', `${siteUrl}/twitter-merch.png`); // Placeholder image
+
+  }, []);
+
   useEffect(() => {
     async function loadMerch() {
       setLoading(true);
       try {
         const allItems = await getMerchItems();
         setMerchItems(allItems);
-        setFilteredItems(allItems); // Initialize filtered list
+        setFilteredItems(allItems); 
       } catch (error) {
         console.error("Failed to fetch merch items:", error);
         toast({
@@ -60,14 +96,12 @@ export default function MerchPage() {
     loadMerch();
   }, [toast]);
 
-  // Memoize extraction of filter options (types)
   const availableTypes = useMemo(() => {
     const types = new Set<MerchType>();
     merchItems.forEach(item => types.add(item.type));
     return ['all', ...Array.from(types).sort()];
   }, [merchItems]);
 
-  // Filter items based on type
   useEffect(() => {
     let results = merchItems;
 
@@ -84,11 +118,66 @@ export default function MerchPage() {
 
   const hasActiveFilters = selectedType !== 'all';
 
+  useEffect(() => {
+    if (filteredItems.length > 0 && !loading) {
+      const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage', // Signifies a page listing multiple items
+        name: 'Rocketpedia Merchandise Store - Collectibles, Apparel, Posters',
+        description: 'Browse exclusive rocket-themed collectibles, apparel, posters, and engineering art. Perfect gifts for space enthusiasts and science lovers.',
+        url: merchPageUrl,
+        keywords: "rocket merchandise, space collectibles, astronaut apparel, space posters, engineering blueprints, NASA merch, SpaceX gifts, science gifts",
+        mainEntity: {
+          '@type': 'ItemList',
+          itemListElement: filteredItems.map((item, index) => ({
+            '@type': 'Product',
+            name: item.name,
+            description: item.description,
+            image: item.image.startsWith('http') ? item.image : `${siteUrl}${item.image}`,
+            sku: item.id,
+            category: item.type, // Category of the product
+            ...(item.techDetails && { additionalProperty: { '@type': 'PropertyValue', name: 'Technical Details', value: item.techDetails } }),
+            offers: {
+              '@type': 'Offer',
+              priceCurrency: 'USD', // Assuming USD, adjust if different
+              price: (item.price / 100).toFixed(2), // Convert cents to dollars
+              availability: 'https://schema.org/InStock', // Or InStoreOnly, PreOrder, etc.
+              url: item.buyNowLink !== '#' ? item.buyNowLink : `${merchPageUrl}#item-${item.id}`, // Link to product
+              seller: { // Seller information
+                '@type': 'Organization',
+                name: 'Rocketpedia Store'
+              }
+            },
+            brand: { // Brand of the product (if applicable, otherwise can be Rocketpedia)
+              '@type': 'Organization',
+              name: 'Rocketpedia Store', 
+            }
+          })),
+        },
+      };
+
+      let script = document.getElementById('merch-json-ld');
+      if (!script) {
+        script = document.createElement('script');
+        script.id = 'merch-json-ld';
+        script.type = 'application/ld+json';
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify(jsonLd);
+      
+      return () => {
+        const ldScript = document.getElementById('merch-json-ld');
+        if (ldScript) {
+          ldScript.remove();
+        }
+      };
+    }
+  }, [filteredItems, loading]);
+
+
   return (
     <div className="container mx-auto px-4 py-12">
-      {/* Hero Section */}
       <section className="text-center mb-12 animate-launch">
-        {/* Replace with a more relevant icon or SVG if needed */}
          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="mx-auto h-16 w-16 text-primary mb-4">
            <path d="M17.283 1.036a1 1 0 0 0-1.047.06L4.5 11.25l.92.92a3.75 3.75 0 0 0 5.304 0l7.81-7.81a1 1 0 0 0 .06-1.047Zm0-1.036a2 2 0 0 1 2.094-.12L24 3.75V1.5a.75.75 0 0 0-1.5 0v.44L17.283.001ZM11.78 11.03a.75.75 0 1 0 1.06-1.06L6.47 3.6H3.75a.75.75 0 0 0 0 1.5h2.076l5.954 5.93Zm4.44 2.95a.75.75 0 0 0-1.06 1.06l-2.97 2.97H9.75a.75.75 0 0 0 0 1.5h2.076l-1.52 1.52a.75.75 0 0 0 1.06 1.06l1.52-1.52v2.076a.75.75 0 0 0 1.5 0v-2.72l2.97-2.97ZM4.5 15.75a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/>
          </svg>
@@ -101,7 +190,6 @@ export default function MerchPage() {
         </p>
       </section>
 
-      {/* Filter Controls */}
        <div className="mb-8 p-4 border rounded-lg bg-card/50 shadow-sm sticky top-[60px] z-40 backdrop-blur supports-[backdrop-filter]:bg-card/70 flex flex-col sm:flex-row gap-4 items-center">
          <div className="flex-grow w-full sm:w-auto">
             <Label htmlFor="filter-type" className="sr-only">Filter by Type</Label>
@@ -123,7 +211,6 @@ export default function MerchPage() {
          )}
       </div>
 
-      {/* Merch Grid */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-4">
           {[...Array(8)].map((_, i) => <MerchCardSkeleton key={i} />)}

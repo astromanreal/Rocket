@@ -1,5 +1,7 @@
+
 'use client';
 
+import type { Metadata, ResolvingMetadata } from 'next';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -20,7 +22,7 @@ import {
     getTopicById,
     getPostsByTopic,
     addPost,
-    deletePost, // Import deletePost
+    deletePost, 
     type ForumTopicJson,
     type ForumPostJson,
     type DisplayPost
@@ -38,38 +40,43 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-// Schema for the new post form remains the same
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+
+// Function to generate metadata (intended for Server Components, but logic can be adapted)
+// This specific function is not directly used by this client component, but the logic is
+// replicated within useEffect for dynamic title and meta tag updates.
+//
+// export async function generateMetadata(
+//   { params }: { params: { topicId: string } },
+//   parent: ResolvingMetadata
+// ): Promise<Metadata> { ... }
+// The above comment block is retained for future reference if converting to Server Component.
+
 const PostSchema = z.object({
   content: z.string().min(5, 'Post must be at least 5 characters.').max(2000, 'Post cannot exceed 2000 characters.'),
 });
 
-// --- TopicPage Component ---
 export default function TopicPage() {
   const params = useParams();
   const { toast } = useToast();
   const topicId = params?.topicId as string | undefined;
 
-  // --- State ---
   const [topic, setTopic] = useState<ForumTopicJson | null>(null);
   const [displayPosts, setDisplayPosts] = useState<DisplayPost[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoadingTopic, setIsLoadingTopic] = useState(true);
   const [postsLoading, setPostsLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false); // State for delete operation
+  const [isDeleting, setIsDeleting] = useState(false); 
   const [topicError, setTopicError] = useState<string | null>(null);
   const [postsError, setPostsError] = useState<string | null>(null);
-  const [postToDelete, setPostToDelete] = useState<string | null>(null); // Store postId for delete confirmation
+  const [postToDelete, setPostToDelete] = useState<string | null>(null); 
 
-  // --- Form Handling ---
   const form = useForm<z.infer<typeof PostSchema>>({
     resolver: zodResolver(PostSchema),
     defaultValues: { content: '' },
   });
 
-  // --- Data Fetching Effects ---
-
-  // Fetch current user ID
   useEffect(() => {
     async function fetchUserId() {
       try {
@@ -83,12 +90,12 @@ export default function TopicPage() {
     fetchUserId();
   }, [toast]);
 
-  // Fetch topic details and posts
   useEffect(() => {
     if (!topicId) {
       setTopicError("Topic ID not found in URL.");
       setIsLoadingTopic(false);
       setPostsLoading(false);
+      document.title = 'Topic Not Found | Rocketpedia';
       return;
     }
 
@@ -98,37 +105,143 @@ export default function TopicPage() {
       setTopicError(null);
       setPostsError(null);
 
+      let fetchedTopic: ForumTopicJson | null = null;
+      let fetchedPosts: DisplayPost[] = [];
+
       try {
-        // Fetch topic details
-        const fetchedTopic = await getTopicById(topicId);
+        fetchedTopic = await getTopicById(topicId);
         if (fetchedTopic) {
           setTopic(fetchedTopic);
+          document.title = `${fetchedTopic.title} - Forum Discussion | Rocketpedia`;
         } else {
           setTopicError(`Topic "${topicId}" not found.`);
+          document.title = `Topic Not Found | Rocketpedia`;
         }
       } catch (err) {
         console.error("Error fetching topic details:", err);
         setTopicError("Failed to load topic details.");
+        document.title = 'Error Loading Topic | Rocketpedia';
       } finally {
         setIsLoadingTopic(false);
       }
 
-      try {
-         // Fetch posts for the topic
-        const fetchedPosts = await getPostsByTopic(topicId);
-        setDisplayPosts(fetchedPosts);
-      } catch (err) {
-         console.error("Error fetching posts:", err);
-         setPostsError("Failed to load posts for this topic.");
-      } finally {
-         setPostsLoading(false);
+      if (fetchedTopic) {
+        try {
+          fetchedPosts = await getPostsByTopic(topicId);
+          setDisplayPosts(fetchedPosts);
+        } catch (err) {
+           console.error("Error fetching posts:", err);
+           setPostsError("Failed to load posts for this topic.");
+        } finally {
+           setPostsLoading(false);
+        }
+      } else {
+        setPostsLoading(false); // No topic, no posts to load
+      }
+
+      // Update meta tags and JSON-LD if topic and posts are loaded
+      if (fetchedTopic) {
+        const canonicalUrl = `${siteUrl}/forum/topic/${topicId}`;
+        const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+            let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+            if (!element) {
+                element = document.createElement('meta');
+                element.setAttribute(type, key);
+                document.head.appendChild(element);
+            }
+            element.setAttribute('content', content);
+        };
+        
+        let canonicalLink = document.querySelector("link[rel='canonical']");
+        if (!canonicalLink) {
+            canonicalLink = document.createElement('link');
+            canonicalLink.setAttribute('rel', 'canonical');
+            document.head.appendChild(canonicalLink);
+        }
+        canonicalLink.setAttribute('href', canonicalUrl);
+
+        setMetaTag('name', 'description', `Join the discussion on "${fetchedTopic.title}". ${fetchedTopic.description.substring(0,100)}...`);
+        setMetaTag('name', 'keywords', [fetchedTopic.title, 'forum', 'discussion', 'rockets', 'space', 'community', ...fetchedTopic.title.toLowerCase().split(' ')].join(', '));
+        
+        setMetaTag('property', 'og:title', `${fetchedTopic.title} - Forum | Rocketpedia`);
+        setMetaTag('property', 'og:description', fetchedTopic.description);
+        setMetaTag('property', 'og:url', canonicalUrl);
+        setMetaTag('property', 'og:type', 'article');
+        setMetaTag('property', 'og:image', `${siteUrl}/og-forum-topic.png`); // Placeholder
+        
+        setMetaTag('name', 'twitter:card', 'summary');
+        setMetaTag('name', 'twitter:title', `${fetchedTopic.title} - Forum | Rocketpedia`);
+        setMetaTag('name', 'twitter:description', fetchedTopic.description);
+        setMetaTag('name', 'twitter:image', `${siteUrl}/twitter-forum-topic.png`); // Placeholder
+
+        const firstPost = fetchedPosts.length > 0 ? fetchedPosts[0] : null;
+        const lastPost = fetchedPosts.length > 0 ? fetchedPosts[fetchedPosts.length - 1] : null;
+
+        const jsonLd = {
+          '@context': 'https://schema.org',
+          '@type': 'DiscussionForumPosting',
+          headline: fetchedTopic.title,
+          name: fetchedTopic.title, // Alias for headline or more concise name
+          description: fetchedTopic.description,
+          url: canonicalUrl,
+          mainEntityOfPage: canonicalUrl,
+          author: firstPost && firstPost.author ? {
+            '@type': 'Person',
+            name: firstPost.author.username,
+            // url: `${siteUrl}/profile/${firstPost.authorId}` // If public profiles exist
+          } : {
+            '@type': 'Organization',
+            name: 'Rocketpedia Community'
+          },
+          datePublished: firstPost ? firstPost.timestamp.toISOString() : new Date().toISOString(), // Fallback to now
+          dateModified: lastPost ? lastPost.timestamp.toISOString() : (firstPost ? firstPost.timestamp.toISOString() : new Date().toISOString()),
+          interactionStatistic: [
+            {
+              '@type': 'InteractionCounter',
+              interactionType: 'https://schema.org/CommentAction', // Signifies posts/comments
+              userInteractionCount: fetchedTopic.postCount,
+            }
+          ],
+          comment: fetchedPosts.slice(0, 5).map(p => ({ // Include a few posts as comments
+            '@type': 'Comment',
+            text: p.content,
+            author: p.author ? { '@type': 'Person', name: p.author.username } : { '@type': 'Organization', name: 'Anonymous User' },
+            dateCreated: p.timestamp.toISOString(),
+          })),
+          isPartOf: {
+            '@type': 'WebPage', // Or Forum, if Forum is the containing element
+            name: 'Rocketpedia Forum',
+            url: `${siteUrl}/forum`
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'Rocketpedia',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${siteUrl}/rocketpedia-logo.png` // Replace with actual logo URL
+            }
+          }
+        };
+
+        let script = document.getElementById('forum-topic-json-ld');
+        if (!script) {
+          script = document.createElement('script');
+          script.id = 'forum-topic-json-ld';
+          script.type = 'application/ld+json';
+          document.head.appendChild(script);
+        }
+        script.textContent = JSON.stringify(jsonLd);
       }
     }
 
     loadData();
-  }, [topicId]);
+    
+    return () => { // Cleanup JSON-LD script
+        const ldScript = document.getElementById('forum-topic-json-ld');
+        if (ldScript) ldScript.remove();
+    };
+  }, [topicId]); // Rerun if topicId changes
 
-  // --- Post Submission ---
   async function onSubmit(data: z.infer<typeof PostSchema>) {
     if (!topicId || !currentUserId) {
        toast({ title: "Error", description: "Cannot post. User or topic information is missing.", variant: "destructive" });
@@ -142,7 +255,7 @@ export default function TopicPage() {
             content: data.content,
         };
         const newPost = await addPost(topicId, postData);
-        const authorProfile = await getUserProfile(currentUserId);
+        const authorProfile = await getUserProfile(currentUserId); 
         const newDisplayPost: DisplayPost = {
             ...newPost,
             id: newPost.postId,
@@ -151,6 +264,11 @@ export default function TopicPage() {
             author: authorProfile
         };
         setDisplayPosts(prevPosts => [...prevPosts, newDisplayPost]);
+
+        // Update topic post count
+        if(topic) {
+          setTopic(prevTopic => prevTopic ? {...prevTopic, postCount: prevTopic.postCount + 1, lastPostTimestamp: newPost.timestamp } : null);
+        }
 
         toast({ title: "Success", description: "Your post has been added." });
         form.reset();
@@ -162,7 +280,6 @@ export default function TopicPage() {
     }
   }
 
-  // --- Post Deletion ---
   async function handleDeletePostConfirm() {
     if (!topicId || !postToDelete || !currentUserId) {
         toast({ title: "Error", description: "Cannot delete post. Information missing.", variant: "destructive" });
@@ -170,7 +287,6 @@ export default function TopicPage() {
         return;
     }
 
-    // Ensure the user deleting is the author
     const post = displayPosts.find(p => p.id === postToDelete);
     if (post?.authorId !== currentUserId) {
         toast({ title: "Error", description: "You can only delete your own posts.", variant: "destructive" });
@@ -182,18 +298,27 @@ export default function TopicPage() {
     try {
         await deletePost(topicId, postToDelete);
         setDisplayPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete));
+        
+        // Update topic post count and last post timestamp
+        if(topic) {
+          const remainingPosts = displayPosts.filter(p => p.id !== postToDelete);
+          const newPostCount = Math.max(0, topic.postCount -1);
+          const newLastPostTimestamp = remainingPosts.length > 0 
+            ? remainingPosts.sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime())[0].timestamp.toISOString()
+            : null;
+          setTopic(prevTopic => prevTopic ? {...prevTopic, postCount: newPostCount, lastPostTimestamp: newLastPostTimestamp } : null);
+        }
+
         toast({ title: "Success", description: "Post deleted successfully." });
     } catch (error: any) {
         console.error("Error deleting post:", error);
         toast({ title: "Error", description: error.message || "Failed to delete post.", variant: "destructive" });
     } finally {
         setIsDeleting(false);
-        setPostToDelete(null); // Close dialog by resetting
+        setPostToDelete(null); 
     }
   }
 
-
-  // --- Rendering Logic ---
   if (isLoadingTopic && !topic) {
     return <TopicPageSkeleton />;
   }
@@ -253,7 +378,7 @@ export default function TopicPage() {
                  <p className="text-sm text-destructive text-center">{postsError}</p>
             )}
             {!postsLoading && !postsError && displayPosts.length > 0 && displayPosts.map(post => (
-                <div key={post.id} className="flex items-start space-x-4 group/post" id={`post-${post.id}`}>
+                <article key={post.id} className="flex items-start space-x-4 group/post" id={`post-${post.id}`}>
                   <Avatar>
                     <AvatarImage src={post.author?.avatarUrl} alt={`${post.author?.username || 'User'}'s avatar`} data-ai-hint="user avatar"/>
                     <AvatarFallback>
@@ -263,7 +388,7 @@ export default function TopicPage() {
                   <div className="flex-1 bg-muted/50 p-4 rounded-md shadow-sm">
                     <div className="flex justify-between items-center mb-1">
                       <span className="font-semibold text-sm">{post.author?.username || 'Unknown User'}</span>
-                      <span className="text-xs text-muted-foreground">{post.formattedTimestamp}</span>
+                      <time dateTime={post.timestamp.toISOString()} className="text-xs text-muted-foreground">{post.formattedTimestamp}</time>
                     </div>
                     <p className="text-sm whitespace-pre-wrap">{post.content}</p>
                     {post.authorId === currentUserId && (
@@ -297,7 +422,7 @@ export default function TopicPage() {
                       </AlertDialog>
                     )}
                   </div>
-                </div>
+                </article>
               ))
             }
              {!postsLoading && !postsError && displayPosts.length === 0 && (
@@ -346,7 +471,6 @@ export default function TopicPage() {
   );
 }
 
-// --- Skeleton Loaders ---
 function PostSkeleton() {
     return (
         <div className="flex items-start space-x-4 animate-pulse">

@@ -1,11 +1,69 @@
+
+import type { Metadata } from 'next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Mail, Phone, ExternalLink } from 'lucide-react';
 
-// Simple SVG for Twitter (X), Instagram, and GitHub
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const contactPageUrl = `${siteUrl}/contact`;
+
+export const metadata: Metadata = {
+  title: 'Contact Us - Rocketpedia Team | Get In Touch',
+  description: 'Get in touch with the Rocketpedia team. Find our social media links (Twitter, Instagram, GitHub), phone number, and email address for inquiries, support, or collaborations.',
+  keywords: ['contact rocketpedia', 'space website contact', 'rocket information contact', 'Sathyam Sarthak contact', 'Astromanreal contact', 'rocketpedia support', 'space collaboration'],
+  alternates: {
+    canonical: contactPageUrl,
+  },
+  openGraph: {
+    title: 'Contact Us | Rocketpedia Team',
+    description: 'Get in touch with the Rocketpedia team for support, inquiries, or collaborations.',
+    url: contactPageUrl,
+    images: [{ url: `${siteUrl}/og-contact.png`, alt: 'Contact Rocketpedia' }], 
+  },
+   twitter: {
+    title: 'Contact Us | Rocketpedia Team',
+    description: 'Reach out to the Rocketpedia team.',
+    images: [`${siteUrl}/twitter-contact.png`], 
+  },
+  other: {
+    'application/ld+json': JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'ContactPage',
+      name: 'Contact the Rocketpedia Team',
+      description: 'Contact information for Rocketpedia, including email, phone, and social media profiles for support and inquiries.',
+      url: contactPageUrl,
+      mainEntityOfPage: contactPageUrl,
+      publisher: {
+        '@type': 'Organization',
+        name: 'Rocketpedia',
+        url: siteUrl,
+        logo: {
+            '@type': 'ImageObject',
+            url: `${siteUrl}/rocketpedia-logo.png` // Replace with actual logo URL
+        }
+      },
+      contactPoint: [ // More specific contact points
+        {
+          '@type': 'ContactPoint',
+          telephone: '+91-8102116569',
+          contactType: 'Customer Support', // Example
+          areaServed: 'IN', // Example: India
+          availableLanguage: ['English', 'Hindi']
+        },
+        {
+          '@type': 'ContactPoint',
+          email: 'Astroman6569@gmail.com',
+          contactType: 'General Inquiries',
+          availableLanguage: ['English']
+        }
+      ]
+    }),
+  },
+};
+
 const TwitterIcon = () => (
   <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 fill-current">
-    <title>X</title>
+    <title>X (formerly Twitter)</title>
     <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
   </svg>
 );
@@ -30,14 +88,13 @@ export default function ContactPage() {
           <Mail className="mx-auto h-12 w-12 text-primary mb-4" />
           <CardTitle className="text-3xl font-bold">Contact Us</CardTitle>
           <CardDescription>
-            Get in touch or follow us on social media.
+            Get in touch or follow us on social media. We're here to help!
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Social Links */}
           <div className="space-y-3">
              <h3 className="text-lg font-semibold text-center mb-3">Follow Us</h3>
-             <div className="flex flex-wrap justify-center gap-4"> {/* Added flex-wrap and gap-4 */}
+             <div className="flex flex-wrap justify-center gap-4"> 
                  <Button variant="outline" size="lg" asChild className="group">
                     <a href="https://x.com/Sathyamsarthak" target="_blank" rel="noopener noreferrer">
                         <TwitterIcon />
@@ -62,7 +119,6 @@ export default function ContactPage() {
              </div>
           </div>
 
-          {/* Contact Details */}
            <div className="space-y-3 pt-4 border-t">
              <h3 className="text-lg font-semibold text-center mb-3">Direct Contact</h3>
              <div className="flex items-center justify-center space-x-2 text-muted-foreground">

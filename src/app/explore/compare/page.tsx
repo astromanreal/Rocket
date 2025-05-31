@@ -1,3 +1,4 @@
+
 // src/app/explore/compare/page.tsx
 'use client';
 
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Scale, AlertTriangle, Check, Plus } from 'lucide-react';
+import { ArrowLeft, Scale, AlertTriangle, Plus, Info as InfoIcon } from 'lucide-react';
 import { getRockets, type Rocket as RocketType } from '@/services/rocket-data';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -17,12 +18,15 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const comparePageUrl = `${siteUrl}/explore/compare`;
+
 // Helper to generate slug
 const slugify = (name: string): string => name.toLowerCase().replace(/\s+/g, '-');
 
 // Skeleton Loader for Comparison Page
 function ComparePageSkeleton() {
-  const cols = 3; // Number of skeleton columns
+  const cols = 3;
   return (
     <div className="container mx-auto px-4 py-12">
       <Card className="w-full mx-auto">
@@ -78,16 +82,14 @@ function ComparePageSkeleton() {
 
 // Helper to format various values consistently
 const formatValue = (value: string | number | null | undefined): string => {
-  if (value === null || value === undefined) return 'N/A';
+  if (value === null || value === undefined || value === '') return 'N/A';
   if (typeof value === 'number') {
-    // Check if it's a rate/percentage to add '%'
-    if (value <= 100 && value >= 0 && !Number.isInteger(value)) {
-      return `${value.toFixed(1)}%`;
+    if (value % 1 !== 0 && (value > 0 && value < 1000)) { 
+        return value.toFixed(1);
     }
     return value.toLocaleString();
   }
-  // Capitalize status
-  if (['active', 'past', 'future'].includes(value)) {
+  if (typeof value === 'string' && ['active', 'past', 'future'].includes(value.toLowerCase())) {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
   return value;
@@ -96,12 +98,74 @@ const formatValue = (value: string | number | null | undefined): string => {
 
 export default function ComparePage() {
   const [allRockets, setAllRockets] = useState<RocketType[]>([]);
-  const [selectedRocketSlugs, setSelectedRocketSlugs] = useState<(string | null)[]>([null, null, null]); // Max 3 slots
+  const [selectedRocketSlugs, setSelectedRocketSlugs] = useState<(string | null)[]>([null, null, null]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const MAX_COMPARISON_ITEMS = 3;
+
+  useEffect(() => {
+    document.title = 'Compare Rockets - Side-by-Side Specifications | Rocketpedia';
+
+    // Add canonical link tag
+    let canonicalLink = document.querySelector("link[rel='canonical']");
+    if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', comparePageUrl);
+
+    // Add OpenGraph and Twitter meta tags
+    const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+        let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+        if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(type, key);
+            document.head.appendChild(element);
+        }
+        element.setAttribute('content', content);
+    };
+
+    setMetaTag('property', 'og:title', 'Compare Rockets Side-by-Side | Rocketpedia');
+    setMetaTag('property', 'og:description', 'Select and compare different rockets to see their specifications, performance, and history side-by-side.');
+    setMetaTag('property', 'og:url', comparePageUrl);
+    setMetaTag('property', 'og:image', `${siteUrl}/og-compare.png`); // Placeholder image
+    setMetaTag('name', 'twitter:title', 'Compare Rockets Side-by-Side | Rocketpedia');
+    setMetaTag('name', 'twitter:description', 'Select and compare different rockets to see their specifications, performance, and history side-by-side.');
+    setMetaTag('name', 'twitter:image', `${siteUrl}/twitter-compare.png`); // Placeholder image
+    
+    // JSON-LD for WebPage (or SearchResultsPage if more appropriate later)
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage', // Could be SearchResultsPage if the selection feels like a search
+      name: 'Compare Rockets - Side-by-Side Specifications',
+      description: 'Select and compare different rockets to see their specifications, performance, and history side-by-side. Make informed comparisons with Rocketpedia.',
+      url: comparePageUrl,
+      keywords: ['compare rockets', 'rocket comparison', 'launch vehicle comparison', 'rocket specs', 'SpaceX vs NASA', 'rocket features'],
+       isPartOf: {
+        '@type': 'WebSite',
+        url: siteUrl,
+        name: 'Rocketpedia'
+      }
+    };
+
+    let script = document.getElementById('compare-page-json-ld');
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'compare-page-json-ld';
+      script.type = 'application/ld+json';
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(jsonLd);
+
+    return () => { // Cleanup JSON-LD script
+        const ldScript = document.getElementById('compare-page-json-ld');
+        if (ldScript) ldScript.remove();
+    };
+
+  }, []);
 
   useEffect(() => {
     async function loadRocketData() {
@@ -122,12 +186,10 @@ export default function ComparePage() {
   }, [toast]);
 
   const handleSelectRocket = (index: number, slug: string | null) => {
-    // If the selected value is empty string (clearing selection), set to null
     const newSlug = slug === '' ? null : slug;
 
-    // Prevent selecting the same rocket multiple times if not clearing
-    if (newSlug && selectedRocketSlugs.includes(newSlug)) {
-       toast({ title: "Already Selected", description: "This rocket is already selected in another slot.", variant: "default" });
+    if (newSlug && selectedRocketSlugs.includes(newSlug) && selectedRocketSlugs[index] !== newSlug) {
+       toast({ title: "Already Selected", description: "This rocket is already chosen in another slot.", variant: "default" });
        return;
     }
 
@@ -141,11 +203,10 @@ export default function ComparePage() {
   const rocketsToCompare = useMemo(() => {
     return selectedRocketSlugs
       .map(slug => slug ? allRockets.find(r => slugify(r.name) === slug) : null)
-      .filter((r): r is RocketType => r !== null && r !== undefined); // Filter out null/undefined and ensure type safety
+      .filter((r): r is RocketType => r !== null && r !== undefined);
   }, [selectedRocketSlugs, allRockets]);
 
 
-  // Define the rows for the comparison table
    const comparisonFields: { label: string; key: keyof RocketType }[] = [
     { label: 'Type', key: 'type' },
     { label: 'Operator', key: 'operator' },
@@ -155,7 +216,7 @@ export default function ComparePage() {
     { label: 'Stages', key: 'stages' },
     { label: 'Payload Capacity', key: 'payloadCapacity' },
     { label: 'Total Launches', key: 'totalLaunches' },
-    { label: 'Success Rate', key: 'successRate' }, // Already formatted to include %
+    { label: 'Success Rate', key: 'successRate' },
     { label: 'First Launch', key: 'firstLaunchDate' },
     { label: 'Last Launch', key: 'lastLaunchDate' },
   ];
@@ -194,29 +255,32 @@ export default function ComparePage() {
           <Scale className="mx-auto h-12 w-12 text-primary mb-4" />
           <CardTitle className="text-3xl font-bold">Rocket Comparison</CardTitle>
           <CardDescription>
-            Select up to {MAX_COMPARISON_ITEMS} rockets to compare side-by-side.
+            Select up to {MAX_COMPARISON_ITEMS} rockets to compare their specifications side-by-side.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 md:p-6">
-            {/* Rocket Selection Dropdowns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 {selectedRocketSlugs.map((selectedSlug, index) => (
                     <div key={index}>
                         <Label htmlFor={`select-rocket-${index}`} className="text-xs text-muted-foreground mb-1 block">
-                          Select Rocket {index + 1}
+                          Rocket Slot {index + 1}
                         </Label>
                         <Select
-                            value={selectedSlug ?? ''} // Use empty string for placeholder state
-                            onValueChange={(slug) => handleSelectRocket(index, slug)}
+                            value={selectedSlug ?? ''}
+                            onValueChange={(slug) => handleSelectRocket(index, slug === '##NONE##' ? null : slug)}
                         >
                             <SelectTrigger id={`select-rocket-${index}`} className="w-full">
                                 <SelectValue placeholder="Choose a rocket..." />
                             </SelectTrigger>
                             <SelectContent>
-                                 <ScrollArea className="h-[300px]"> {/* Make dropdown scrollable */}
-                                     {/* Removed <SelectItem value="">- None -</SelectItem> */}
+                                 <ScrollArea className="h-[300px]">
+                                    <SelectItem value="##NONE##" className="text-muted-foreground italic">Clear selection</SelectItem>
                                     {allRockets.sort((a,b) => a.name.localeCompare(b.name)).map(rocket => (
-                                        <SelectItem key={slugify(rocket.name)} value={slugify(rocket.name)} disabled={selectedRocketSlugs.includes(slugify(rocket.name)) && selectedRocketSlugs[index] !== slugify(rocket.name)}>
+                                        <SelectItem
+                                          key={slugify(rocket.name)}
+                                          value={slugify(rocket.name)}
+                                          disabled={selectedRocketSlugs.includes(slugify(rocket.name)) && selectedRocketSlugs[index] !== slugify(rocket.name)}
+                                        >
                                             {rocket.name} ({rocket.operator})
                                         </SelectItem>
                                     ))}
@@ -227,104 +291,145 @@ export default function ComparePage() {
                 ))}
             </div>
 
-            {rocketsToCompare.length > 0 ? (
-                 <>
-                    {rocketsToCompare.length < 2 && (
-                        <div className="text-center text-muted-foreground mb-6">
-                            Please select at least 2 rockets to see the comparison table.
-                        </div>
-                    )}
-                    <div className={cn("overflow-x-auto", rocketsToCompare.length < 2 ? 'hidden' : '')}> {/* Hide table if less than 2 selected */}
-                        <Table className="min-w-max">
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-[150px] font-semibold text-base align-top sticky left-0 bg-card z-10 shadow-sm">Attribute</TableHead>
-                                    {rocketsToCompare.map((rocket) => (
-                                        <TableHead key={rocket.name} className="w-[250px] text-center align-top p-4">
-                                        <Link href={`/explore/${slugify(rocket.name)}`} passHref>
-                                            <div className="relative h-40 w-full mb-2 rounded overflow-hidden group mx-auto max-w-[200px]">
-                                                <Image
-                                                    src={rocket.imageUrl || 'https://picsum.photos/400/300'}
-                                                    alt={`Image of ${rocket.name}`}
-                                                    layout="fill"
-                                                    objectFit="cover"
-                                                    className="transition-transform duration-300 group-hover:scale-105"
-                                                    data-ai-hint={`rocket ${rocket.type}`}
-                                                />
-                                            </div>
-                                            <span className="font-bold text-lg block hover:text-primary transition-colors">{rocket.name}</span>
-                                        </Link>
-                                        <span className="text-sm text-muted-foreground">{rocket.operator}</span>
-                                        </TableHead>
-                                    ))}
-                                    {/* Add placeholders if fewer than 3 rockets are selected */}
-                                    {[...Array(MAX_COMPARISON_ITEMS - rocketsToCompare.length)].map((_, i) => (
-                                        <TableHead key={`placeholder-${i}`} className="w-[250px] text-center align-top p-4">
-                                            <div className="relative h-40 w-full mb-2 rounded bg-muted/50 flex items-center justify-center mx-auto max-w-[200px]">
-                                                <Plus className="h-8 w-8 text-muted-foreground/50" />
-                                            </div>
-                                            <span className="font-bold text-lg block text-muted-foreground">-</span>
-                                            <span className="text-sm text-muted-foreground">-</span>
-                                        </TableHead>
-                                    ))}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {comparisonFields.map((field) => (
-                                <TableRow key={field.key}>
-                                    <TableCell className="font-medium sticky left-0 bg-card z-10 shadow-sm">{field.label}</TableCell>
-                                    {rocketsToCompare.map((rocket) => (
-                                    <TableCell key={`${rocket.name}-${field.key}`} className="text-center">
-                                        {field.key === 'status' ? (
-                                        <Badge
-                                            variant={rocket.status === 'active' ? 'default' : rocket.status === 'past' ? 'destructive' : 'secondary'}
-                                            className="capitalize"
-                                        >
-                                            {rocket.status}
-                                        </Badge>
-                                        ) : field.key === 'successRate' ? (
-                                          // Special handling for success rate to add '%'
-                                          `${formatValue(rocket[field.key])}`
-                                        ) : (
-                                        formatValue(rocket[field.key])
-                                        )}
-                                    </TableCell>
-                                    ))}
-                                     {/* Add placeholder cells */}
-                                    {[...Array(MAX_COMPARISON_ITEMS - rocketsToCompare.length)].map((_, i) => (
-                                        <TableCell key={`placeholder-cell-${field.key}-${i}`} className="text-center text-muted-foreground">-</TableCell>
-                                    ))}
-                                </TableRow>
-                                ))}
-                                <TableRow>
-                                    <TableCell className="font-medium sticky left-0 bg-card z-10 shadow-sm align-top">Description</TableCell>
-                                    {rocketsToCompare.map((rocket) => (
-                                    <TableCell key={`${rocket.name}-description`} className="text-sm text-left max-w-xs whitespace-normal align-top">
-                                        {rocket.description}
-                                    </TableCell>
-                                    ))}
-                                     {/* Add placeholder cells */}
-                                     {[...Array(MAX_COMPARISON_ITEMS - rocketsToCompare.length)].map((_, i) => (
-                                        <TableCell key={`placeholder-desc-${i}`} className="text-sm text-left max-w-xs whitespace-normal align-top text-muted-foreground">-</TableCell>
-                                    ))}
-                                </TableRow>
-                            </TableBody>
-                        </Table>
-                    </div>
-                </>
-            ) : (
-                <div className="text-center py-16 text-muted-foreground">
-                     <Scale className="mx-auto h-12 w-12 mb-4" />
-                     <p>Select rockets using the dropdowns above to start comparing.</p>
+            {rocketsToCompare.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg bg-card/30">
+                     <Scale className="mx-auto h-10 w-10 mb-3 text-primary" />
+                     <p className="font-semibold text-lg">Start Comparing Rockets</p>
+                     <p className="text-sm">Use the dropdowns above to select up to {MAX_COMPARISON_ITEMS} rockets.</p>
                  </div>
             )}
 
+            {rocketsToCompare.length > 0 && rocketsToCompare.length < 2 && (
+                <div className="text-center py-12 text-muted-foreground border border-blue-500/30 bg-blue-500/10 rounded-lg">
+                    <InfoIcon className="mx-auto h-10 w-10 mb-3 text-blue-500" />
+                     <p className="font-semibold text-lg">Select More Rockets</p>
+                    <p className="text-sm">Please select at least one more rocket to see the comparison table.</p>
+                </div>
+            )}
+
+            {rocketsToCompare.length >= 2 && (
+                <div className="overflow-x-auto mt-6">
+                    <Table className="min-w-[calc(180px+250px*2)]">
+                        <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead className="w-[180px] font-semibold text-base align-top sticky left-0 bg-card z-10 shadow-sm">Attribute</TableHead>
+                                {selectedRocketSlugs.map((slug, index) => {
+                                    const rocket = slug ? allRockets.find(r => slugify(r.name) === slug) : null;
+                                    if (rocket) {
+                                        return (
+                                            <TableHead key={rocket.id || rocket.name} className="w-[250px] text-center align-top p-4 border-l">
+                                            <Link href={`/explore/${slugify(rocket.name)}`} passHref>
+                                                <div className="relative h-40 w-full mb-2 rounded overflow-hidden group mx-auto max-w-[200px] shadow-md">
+                                                    <Image
+                                                        src={rocket.imageUrl || 'https://placehold.co/400x300.png'}
+                                                        alt={`Official image of ${rocket.name}`}
+                                                        layout="fill"
+                                                        objectFit="cover"
+                                                        className="transition-transform duration-300 group-hover:scale-105"
+                                                        data-ai-hint={`rocket ${rocket.type}`}
+                                                        sizes="(max-width: 768px) 100vw, 200px"
+                                                    />
+                                                </div>
+                                                <span className="font-bold text-lg block hover:text-primary transition-colors">{rocket.name}</span>
+                                            </Link>
+                                            <span className="text-sm text-muted-foreground">{rocket.operator}</span>
+                                            </TableHead>
+                                        );
+                                    } else {
+                                        if (index < MAX_COMPARISON_ITEMS && rocketsToCompare.length < MAX_COMPARISON_ITEMS) {
+                                             return (
+                                                <TableHead key={`placeholder-col-${index}`} className="w-[250px] text-center align-top p-4 border-l">
+                                                    <div className="relative h-40 w-full mb-2 rounded bg-muted/30 flex items-center justify-center mx-auto max-w-[200px] border border-dashed">
+                                                        <Plus className="h-8 w-8 text-muted-foreground/40" />
+                                                    </div>
+                                                    <span className="font-bold text-lg block text-muted-foreground/60">Select Rocket</span>
+                                                    <span className="text-sm text-muted-foreground/60">-</span>
+                                                </TableHead>
+                                             );
+                                        }
+                                        return null;
+                                    }
+                                })}
+                                {Array.from({ length: Math.max(0, MAX_COMPARISON_ITEMS - Math.max(2, rocketsToCompare.length)) }).map((_, i) => (
+                                   rocketsToCompare.length >=2 &&
+                                    <TableHead key={`fill-placeholder-${i}`} className="w-[250px] text-center align-top p-4 border-l">
+                                        <div className="relative h-40 w-full mb-2 rounded bg-muted/30 flex items-center justify-center mx-auto max-w-[200px] border border-dashed">
+                                            <Plus className="h-8 w-8 text-muted-foreground/40" />
+                                        </div>
+                                        <span className="font-bold text-lg block text-muted-foreground/60">Select Rocket</span>
+                                        <span className="text-sm text-muted-foreground/60">-</span>
+                                    </TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {comparisonFields.map((field) => (
+                            <TableRow key={field.key}>
+                                <TableCell className="font-medium sticky left-0 bg-card z-10 shadow-sm">{field.label}</TableCell>
+                                {selectedRocketSlugs.map((slug, index) => {
+                                     const rocket = slug ? allRockets.find(r => slugify(r.name) === slug) : null;
+                                     if (rocket) {
+                                        return (
+                                            <TableCell key={`${slug}-${field.key}`} className="text-center border-l">
+                                                {field.key === 'status' ? (
+                                                <Badge
+                                                    variant={rocket.status === 'active' ? 'default' : rocket.status === 'past' ? 'destructive' : 'secondary'}
+                                                    className="capitalize"
+                                                >
+                                                    {formatValue(rocket.status)}
+                                                </Badge>
+                                                ) : field.key === 'successRate' ? (
+                                                  `${formatValue(rocket[field.key])}${typeof rocket[field.key] === 'number' ? '%' : ''}`
+                                                ) : (
+                                                formatValue(rocket[field.key])
+                                                )}
+                                            </TableCell>
+                                        );
+                                     } else {
+                                        if (index < MAX_COMPARISON_ITEMS && rocketsToCompare.length < MAX_COMPARISON_ITEMS) {
+                                          return <TableCell key={`placeholder-cell-${index}-${field.key}`} className="text-center text-muted-foreground/60 border-l">-</TableCell>;
+                                        }
+                                        return null;
+                                     }
+                                })}
+                                {Array.from({ length: Math.max(0, MAX_COMPARISON_ITEMS - Math.max(2, rocketsToCompare.length)) }).map((_, i) => (
+                                    rocketsToCompare.length >=2 &&
+                                    <TableCell key={`fill-placeholder-cell-${field.key}-${i}`} className="text-center text-muted-foreground/60 border-l">-</TableCell>
+                                ))}
+                            </TableRow>
+                            ))}
+                            <TableRow>
+                                <TableCell className="font-medium sticky left-0 bg-card z-10 shadow-sm align-top">Description</TableCell>
+                                {selectedRocketSlugs.map((slug, index) => {
+                                     const rocket = slug ? allRockets.find(r => slugify(r.name) === slug) : null;
+                                     if (rocket) {
+                                        return (
+                                            <TableCell key={`${slug}-description`} className="text-sm text-left max-w-xs whitespace-normal align-top border-l">
+                                                {rocket.description}
+                                            </TableCell>
+                                        );
+                                     } else {
+                                         if (index < MAX_COMPARISON_ITEMS && rocketsToCompare.length < MAX_COMPARISON_ITEMS) {
+                                          return <TableCell key={`placeholder-desc-${index}`} className="text-sm text-left max-w-xs whitespace-normal align-top text-muted-foreground/60 border-l">-</TableCell>;
+                                         }
+                                         return null;
+                                     }
+                                })}
+                                {Array.from({ length: Math.max(0, MAX_COMPARISON_ITEMS - Math.max(2, rocketsToCompare.length)) }).map((_, i) => (
+                                    rocketsToCompare.length >=2 &&
+                                    <TableCell key={`fill-placeholder-desc-${i}`} className="text-sm text-left max-w-xs whitespace-normal align-top text-muted-foreground/60 border-l">-</TableCell>
+                                ))}
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
         </CardContent>
       </Card>
        <div className="text-center mt-8">
             <Link href="/explore" passHref>
                 <Button variant="outline">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Explore
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Explore Rockets
                 </Button>
             </Link>
         </div>

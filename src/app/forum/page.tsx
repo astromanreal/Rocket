@@ -1,8 +1,9 @@
+
 // src/app/forum/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Import useRouter for navigation
+import { useRouter } from 'next/navigation'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,6 +26,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const forumPageUrl = `${siteUrl}/forum`;
+
 interface ForumTopicJson {
   id: string;
   title: string;
@@ -43,6 +47,39 @@ export default function ForumPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    document.title = 'Community Forum - Rocket Discussions & Space Exploration | Rocketpedia';
+    
+    // Add canonical link tag
+    let canonicalLink = document.querySelector("link[rel='canonical']");
+    if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', forumPageUrl);
+
+    // Add OpenGraph and Twitter meta tags
+    const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+        let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+        if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(type, key);
+            document.head.appendChild(element);
+        }
+        element.setAttribute('content', content);
+    };
+
+    setMetaTag('property', 'og:title', 'Community Forum | Rocketpedia');
+    setMetaTag('property', 'og:description', 'Join discussions on rockets, space exploration, missions, and technology with fellow enthusiasts.');
+    setMetaTag('property', 'og:url', forumPageUrl);
+    setMetaTag('property', 'og:image', `${siteUrl}/og-forum.png`); // Placeholder image
+    setMetaTag('name', 'twitter:title', 'Community Forum | Rocketpedia');
+    setMetaTag('name', 'twitter:description', 'Discuss space with the Rocketpedia community.');
+    setMetaTag('name', 'twitter:image', `${siteUrl}/twitter-forum.png`); // Placeholder image
+
+  }, []);
+
+  useEffect(() => {
     async function loadTopics() {
       setIsLoading(true);
       setError(null);
@@ -58,6 +95,51 @@ export default function ForumPage() {
     }
     loadTopics();
   }, []);
+
+  useEffect(() => {
+    if (topics.length > 0 && !isLoading) {
+      const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage', // This page lists multiple forum topics
+        name: 'Rocketpedia Community Forum - Main Page',
+        description: 'Discuss rockets, space exploration, missions, and technology with fellow enthusiasts. Browse topics and join conversations.',
+        url: forumPageUrl,
+        keywords: "space forum, rocket discussion, astronaut community, space exploration topics, rocket science chat",
+        mainEntity: {
+          '@type': 'ItemList',
+          itemListElement: topics.map((topic, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            item: { // Each item in the list is essentially a link to a DiscussionForumPosting
+              '@type': 'WebPage', // Could also be 'DiscussionForumPosting' if you want to inline some info
+              name: topic.title,
+              description: topic.description,
+              url: `${siteUrl}/forum/topic/${topic.id}`,
+            }
+          }))
+        },
+        isPartOf: {
+            '@type': 'WebSite',
+            url: siteUrl,
+            name: 'Rocketpedia'
+        }
+      };
+
+      let script = document.getElementById('forum-list-json-ld');
+      if (!script) {
+        script = document.createElement('script');
+        script.id = 'forum-list-json-ld';
+        script.type = 'application/ld+json';
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify(jsonLd);
+
+      return () => {
+        const ldScript = document.getElementById('forum-list-json-ld');
+        if (ldScript) ldScript.remove();
+      };
+    }
+  }, [topics, isLoading]);
 
   const formatLastPost = (timestamp: string | null): string => {
     if (!timestamp) return 'No posts yet';
@@ -91,11 +173,10 @@ export default function ForumPage() {
             </div>
             <Dialog open={isCreatePostDialogOpen} onOpenChange={(isOpen) => {
                 setIsCreatePostDialogOpen(isOpen);
-                if (!isOpen) setSelectedTopicForNewPost(null); // Reset selection on close
+                if (!isOpen) setSelectedTopicForNewPost(null); 
             }}>
               <DialogTrigger asChild>
-                {/* TODO: Add authentication check before allowing post creation */}
-                <Button disabled={isLoading || topics.length === 0}> {/* Disable if no topics or loading */}
+                <Button disabled={isLoading || topics.length === 0}> 
                   <PlusCircle className="mr-2 h-4 w-4" /> Create New Post
                 </Button>
               </DialogTrigger>
@@ -112,7 +193,7 @@ export default function ForumPage() {
                       Topic
                     </Label>
                     <Select
-                        value={selectedTopicForNewPost ?? undefined} // Handle null state for Select
+                        value={selectedTopicForNewPost ?? undefined} 
                         onValueChange={(value) => setSelectedTopicForNewPost(value)}
                     >
                       <SelectTrigger id="topic-select" className="col-span-3">

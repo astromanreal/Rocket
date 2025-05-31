@@ -5,14 +5,14 @@
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button'; // Import buttonVariants
-import { Globe, Rocket, CheckCircle, Calendar, ChevronRight, ExternalLink } from 'lucide-react'; // Added ExternalLink
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Globe, Rocket, CheckCircle, Calendar, ChevronRight, ExternalLink } from 'lucide-react';
 import type { Agency, AgencyTimelineEntry } from '@/data/agencies-data';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'; // Added DialogFooter
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton'; // Import Skeleton
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface AgencyCardProps {
   agency: Agency;
@@ -89,7 +89,7 @@ export function AgencyCard({ agency }: AgencyCardProps) {
               <p className="text-sm text-muted-foreground pt-2">{agency.description}</p>
             </DialogHeader>
 
-             <ScrollArea className="max-h-[50vh] pr-6 mt-4"> {/* Adjusted max-h for footer */}
+             <ScrollArea className="max-h-[50vh] pr-6 mt-4">
                  <div className="space-y-4">
                     <div>
                       <h4 className="font-semibold mb-2 text-base">Notable Missions</h4>
@@ -123,20 +123,16 @@ export function AgencyCard({ agency }: AgencyCardProps) {
                     className={cn(
                         buttonVariants({ variant: "default", size: "lg" }),
                         "group/3d relative overflow-hidden shadow-lg transition-all duration-300 ease-out",
-                        "hover:shadow-primary/50 hover:-translate-y-0.5", // 3D hover effect
-                        "active:translate-y-0 active:shadow-md" // Active press effect
+                        "hover:shadow-primary/50 hover:-translate-y-0.5", 
+                        "active:translate-y-0 active:shadow-md" 
                     )}
                     style={{
-                        // Basic 3D button styling
                         transformStyle: 'preserve-3d',
-                        // You might need to adjust perspective on a parent if it's not already there
                     }}
                 >
                     <span className="relative z-10 flex items-center">
                          Visit Official Site <ExternalLink className="ml-2 h-4 w-4" />
                     </span>
-                    {/* Optional: Add pseudo-elements for more depth if desired */}
-                    {/* For example, a darker bottom edge */}
                      <span
                         aria-hidden="true"
                         className="absolute inset-x-0 bottom-0 h-1.5 bg-primary/70 transition-transform duration-300 ease-out group-hover/3d:scale-y-150"
@@ -150,7 +146,6 @@ export function AgencyCard({ agency }: AgencyCardProps) {
   );
 }
 
-// Skeleton Loader for Agency Card
 export function AgencyCardSkeleton() {
   return (
     <Card className="flex flex-col h-full">
@@ -174,4 +169,3 @@ export function AgencyCardSkeleton() {
     </Card>
   );
 }
-

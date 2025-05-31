@@ -1,13 +1,97 @@
 
+'use client'; 
 
-'use client'; // Can be server or client, depending on future needs
-
+import { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { FlaskConical, Atom, Infinity as InfinityIcon, Shapes, DraftingCompass, Settings2, Fuel } from 'lucide-react'; // Removed Engine, kept Settings2 and Fuel
+import { FlaskConical, Atom, Infinity as InfinityIcon, Shapes, DraftingCompass, Settings2, Fuel } from 'lucide-react'; 
 import Image from 'next/image';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const rocketSciencePageUrl = `${siteUrl}/rocket-science`;
+
+
 export default function RocketSciencePage() {
+  useEffect(() => {
+    document.title = 'The Science of Rockets - Physics, Engineering & Chemistry | Rocketpedia';
+    
+    // Add canonical link tag
+    let canonicalLink = document.querySelector("link[rel='canonical']");
+    if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', rocketSciencePageUrl);
+
+    // Add OpenGraph and Twitter meta tags
+    const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+        let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+        if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(type, key);
+            document.head.appendChild(element);
+        }
+        element.setAttribute('content', content);
+    };
+
+    setMetaTag('property', 'og:title', 'The Science of Rockets | Rocketpedia');
+    setMetaTag('property', 'og:description', 'Delve into the core concepts that make spaceflight possible: propulsion, orbital mechanics, materials science, and more.');
+    setMetaTag('property', 'og:url', rocketSciencePageUrl);
+    setMetaTag('property', 'og:type', 'article');
+    setMetaTag('property', 'og:image', `${siteUrl}/og-rocket-science.png`); // Placeholder image
+    setMetaTag('name', 'twitter:card', 'summary_large_image');
+    setMetaTag('name', 'twitter:title', 'The Science of Rockets | Rocketpedia');
+    setMetaTag('name', 'twitter:description', 'Learn about the physics and engineering behind rockets and spaceflight.');
+    setMetaTag('name', 'twitter:image', `${siteUrl}/twitter-rocket-science.png`); // Placeholder image
+
+
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': rocketSciencePageUrl,
+      },
+      headline: 'The Science of Rockets - Physics, Engineering & Chemistry',
+      name: 'The Science of Rockets - Physics, Engineering & Chemistry', // Often same as headline for articles
+      description: 'Explore the fundamental principles of rocket science, including propulsion, orbital mechanics, materials science, aerodynamics, and Guidance, Navigation, and Control (GNC) systems.',
+      image: 'https://i.pinimg.com/736x/bb/b1/29/bbb12906fb28717de83f891939de47e3.jpg', // Main representative image
+      keywords: "rocket science, physics of rockets, rocket engineering, propulsion systems, orbital mechanics, aerodynamics, spaceflight principles, GNC systems, rocket materials, Tsiolkovsky rocket equation",
+      author: {
+        '@type': 'Organization',
+        name: 'Rocketpedia',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Rocketpedia',
+        logo: {
+          '@type': 'ImageObject',
+          url: `${siteUrl}/rocketpedia-logo.png`,
+        },
+      },
+      datePublished: '2024-05-10', // Set an appropriate publication date
+      dateModified: new Date().toISOString().split('T')[0], 
+      articleSection: ['Rocket Propulsion', 'Orbital Mechanics', 'Materials Science', 'Aerodynamics', 'GNC Systems', 'Rocket Design'], // Key sections
+    };
+
+    let script = document.getElementById('rocket-science-json-ld');
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'rocket-science-json-ld';
+      script.type = 'application/ld+json';
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(jsonLd);
+
+    return () => {
+      const ldScript = document.getElementById('rocket-science-json-ld');
+      if (ldScript) {
+        ldScript.remove();
+      }
+    };
+  }, []);
+
   return (
     <div className="container mx-auto px-4 py-12">
       <Card className="max-w-4xl mx-auto animate-launch">
@@ -20,7 +104,6 @@ export default function RocketSciencePage() {
         </CardHeader>
         <CardContent className="space-y-8">
 
-          {/* Introduction Section */}
           <section>
             <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
               <Atom className="h-6 w-6 text-secondary" /> Fundamental Principles
@@ -30,7 +113,7 @@ export default function RocketSciencePage() {
             </p>
             <Image
               src="https://i.pinimg.com/736x/bb/b1/29/bbb12906fb28717de83f891939de47e3.jpg"
-              alt="Diagram illustrating Newton's Third Law"
+              alt="Diagram illustrating Newton's Third Law of Motion with a rocket"
               width={800}
               height={300}
               className="rounded-md object-cover w-full h-auto shadow-md"
@@ -38,7 +121,6 @@ export default function RocketSciencePage() {
             />
           </section>
 
-          {/* Vehicle Configurations Section */}
           <section>
              <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
               <Shapes className="h-6 w-6 text-primary" /> Vehicle Configurations
@@ -60,7 +142,7 @@ export default function RocketSciencePage() {
             </ul>
              <Image
               src="https://i.pinimg.com/736x/6d/47/67/6d476718e49681d2155dc2a7f80faa09.jpg"
-              alt="Collage of different rocket types"
+              alt="Collage showing various types of rocket configurations and vehicles"
               width={800}
               height={300}
               className="rounded-md object-cover w-full h-auto shadow-md"
@@ -68,7 +150,6 @@ export default function RocketSciencePage() {
             />
           </section>
 
-          {/* Design Section */}
            <section>
              <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
               <DraftingCompass className="h-6 w-6 text-accent" /> Rocket Design
@@ -76,18 +157,8 @@ export default function RocketSciencePage() {
             <p className="text-muted-foreground mb-4">
                 While a basic rocket can be simple, creating efficient and accurate rockets or missiles involves solving complex challenges. Key difficulties include managing the intense heat within the combustion chamber, efficiently pumping fuel (especially for liquid-fueled rockets), and precisely controlling the rocket's direction and trajectory during flight.
             </p>
-             {/* Optional: Add an image related to rocket design/blueprints */}
-             {/* <Image
-              src="https://picsum.photos/seed/rocketdesign/800/300"
-              alt="Rocket blueprint or CAD model"
-              width={800}
-              height={300}
-              className="rounded-md object-cover w-full h-auto shadow-md"
-               data-ai-hint="rocket blueprint schematic design"
-            /> */}
           </section>
 
-          {/* Components Section */}
            <section>
              <h2 className="text-2xl font-semibold mb-3 flex items-center gap-2">
               <Settings2 className="h-6 w-6 text-secondary" /> Key Components
@@ -114,8 +185,8 @@ export default function RocketSciencePage() {
                  <li>Navigation and Guidance Systems (using satellite or inertial navigation)</li>
               </ul>
              <Image
-              src="https://picsum.photos/seed/rocketparts/800/300"
-              alt="Diagram showing rocket components"
+              src="https://placehold.co/800x300.png" 
+              alt="Diagram showing different components of a typical rocket"
               width={800}
               height={300}
               className="rounded-md object-cover w-full h-auto shadow-md"
@@ -123,7 +194,6 @@ export default function RocketSciencePage() {
             />
           </section>
 
-          {/* Accordion for Key Topics */}
           <section>
              <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                <InfinityIcon className="h-6 w-6 text-primary" /> Advanced Topics
@@ -138,7 +208,7 @@ export default function RocketSciencePage() {
                   <p className="text-sm text-muted-foreground"><em>(Full article coming soon)</em></p>
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="item-7"> {/* New Item for Propellant */}
+              <AccordionItem value="item-7"> 
                 <AccordionTrigger className="text-lg flex items-center gap-2">
                     <Fuel className="h-5 w-5 text-accent" /> Propellant
                 </AccordionTrigger>
@@ -146,8 +216,8 @@ export default function RocketSciencePage() {
                   <p className="mb-2">Rocket propellant is mass stored (in tanks or casings) and ejected as a fluid jet to produce thrust. Chemical rockets commonly use fuel (like liquid hydrogen or kerosene) burned with an oxidizer (like liquid oxygen or nitric acid) to create hot gas. Propellants can be stored separately and mixed, or premixed (solid rockets).</p>
                   <p className="mb-2">Some propellants don't burn but still undergo a chemical reaction, and can be a 'monopropellant' such as hydrazine, nitrous oxide or hydrogen peroxide that can be catalytically decomposed to hot gas. Others are inert and heated externally (steam, solar thermal, nuclear thermal rockets). Smaller thrusters might simply expel pressurized fluid.</p>
                    <Image
-                     src="https://picsum.photos/seed/propellant/800/300"
-                     alt="Rocket fuel tanks or propellant types"
+                     src="https://placehold.co/800x300.png" 
+                     alt="Illustration of different types of rocket propellants or fuel tanks"
                      width={800}
                      height={300}
                      className="rounded-md object-cover w-full h-auto shadow-md mt-4"
@@ -163,8 +233,8 @@ export default function RocketSciencePage() {
                 <AccordionContent>
                   <p className="mb-2">Rocket engines utilize jet propulsion. Most current rockets are chemically powered, emitting hot exhaust gas from the combustion of propellants (solid, liquid, or hybrid). The reaction occurs in the combustion chamber, and gases accelerate out the nozzle, generating thrust based on Newton's Third Law. The nozzle shape also contributes to thrust. Non-chemical rockets (like steam or nuclear thermal) also exist.</p>
                   <Image
-                     src="https://picsum.photos/seed/rocketengine/800/300"
-                     alt="Rocket engine diagram or photo"
+                     src="https://placehold.co/800x300.png" 
+                     alt="Detailed diagram of a rocket engine with combustion chamber and nozzle"
                      width={800}
                      height={300}
                      className="rounded-md object-cover w-full h-auto shadow-md mt-4"
@@ -197,7 +267,7 @@ export default function RocketSciencePage() {
                <AccordionItem value="item-5">
                 <AccordionTrigger className="text-lg">Guidance, Navigation & Control (GNC)</AccordionTrigger>
                 <AccordionContent>
-                  <p className="mb-2">The "brains" of the rocket. Explains how sensors (IMUs, star trackers, GPS), computers, and actuators (engine gimbaling, reaction control systems) work together to keep the rocket on its intended path.</p>
+                  <p className="mb-2">The "brains" of the rocket. Explains how sensors (IMUs, star trackers, GPS), actuators (engine gimbaling, reaction control systems), and onboard computers work together to keep the rocket on its intended path.</p>
                   <p className="text-sm text-muted-foreground"><em>(Full article coming soon)</em></p>
                 </AccordionContent>
               </AccordionItem>
@@ -213,6 +283,3 @@ export default function RocketSciencePage() {
     </div>
   );
 }
-
-
-

@@ -73,6 +73,23 @@ body {
   html.font-size-sm { font-size: 14px; }
   html.font-size-md { font-size: 16px; }
   html.font-size-lg { font-size: 18px; }
+
+  /* Enhanced Readability Mode */
+  html.enhanced-readability-mode p,
+  html.enhanced-readability-mode li,
+  html.enhanced-readability-mode .card-description, /* Targeting ShadCN CardDescription */
+  html.enhanced-readability-mode .accordion-content p /* Targeting p inside AccordionContent */
+  {
+    line-height: 1.75 !important; /* Use !important to ensure override if needed */
+    letter-spacing: 0.01em !important;
+  }
+  /* More general readability for overall text in CardContent and similar containers */
+  html.enhanced-readability-mode .card-content,
+  html.enhanced-readability-mode .dialog-content /* If Dialogs have long text */
+  {
+    line-height: 1.7; /* A slightly less aggressive base for containers */
+  }
+
 }
 
 @layer base {
@@ -91,6 +108,22 @@ body {
     background-position: 0 0, 40px 60px, 130px 270px, 70px 100px;
     background-attachment: fixed; /* Keep stars fixed */
     transition: font-size 0.2s ease-in-out; /* Add transition for font size change */
+  }
+
+  html.no-starfield body {
+    background-image: none;
+  }
+
+  html.no-animations .animate-launch {
+    animation: none !important;
+    opacity: 1 !important; /* Ensure visibility if animation is for fade-in */
+    transform: translateY(0) !important; /* Reset transform if animation involves movement */
+  }
+  html.no-animations * {
+    transition-property: none !important;
+    transition-duration: 0s !important;
+    animation-name: none !important;
+    animation-duration: 0s !important;
   }
 }
 
@@ -159,3 +192,4 @@ body {
     .hover\:bg-muted\/50:hover { background-color: hsla(var(--muted), 0.5); }
 
 }
+

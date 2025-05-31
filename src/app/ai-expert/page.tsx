@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -14,10 +15,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Textarea } from '@/components/ui/textarea'; // Use Textarea for multiline questions
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, Loader2 } from 'lucide-react';
-import { rocketExpert, type RocketExpertOutput } from '@/ai/flows/rocket-expert'; // Import the AI function
+import { rocketExpert, type RocketExpertOutput } from '@/ai/flows/rocket-expert';
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+const aiExpertPageUrl = `${siteUrl}/ai-expert`;
 
 const FormSchema = z.object({
   question: z.string().min(10, {
@@ -32,6 +36,70 @@ export default function AiExpertPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    document.title = 'Ask the AI Rocket Expert - Get Your Space Questions Answered | Rocketpedia';
+
+    // Add canonical link tag
+    let canonicalLink = document.querySelector("link[rel='canonical']");
+    if (!canonicalLink) {
+        canonicalLink = document.createElement('link');
+        canonicalLink.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', aiExpertPageUrl);
+
+    // Add OpenGraph and Twitter meta tags
+    const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+        let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+        if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(type, key);
+            document.head.appendChild(element);
+        }
+        element.setAttribute('content', content);
+    };
+
+    setMetaTag('property', 'og:title', 'AI Rocket Expert | Rocketpedia');
+    setMetaTag('property', 'og:description', 'Get answers to your complex space and rocket questions from our AI.');
+    setMetaTag('property', 'og:url', aiExpertPageUrl);
+    setMetaTag('property', 'og:image', `${siteUrl}/og-ai-expert.png`); // Placeholder image
+    setMetaTag('name', 'twitter:title', 'AI Rocket Expert | Rocketpedia');
+    setMetaTag('name', 'twitter:description', 'Ask our AI about rockets and space!');
+    setMetaTag('name', 'twitter:image', `${siteUrl}/twitter-ai-expert.png`); // Placeholder image
+
+    // JSON-LD for WebPage (or QAPage if it evolves to have persistent Q&As)
+    const jsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage', // Could be QAPage if a list of Q&A is presented. For a single interaction, WebPage is fine.
+      name: 'Ask the AI Rocket Expert - Get Your Space Questions Answered',
+      description: 'Have a question about rockets, propulsion, space history, or orbital mechanics? Ask our AI-powered rocket expert for detailed answers.',
+      url: aiExpertPageUrl,
+      keywords: ['ai rocket expert', 'ask ai space', 'rocket questions', 'spacecraft ai', 'rocketpedia ai', 'genkit ai'],
+       isPartOf: {
+        '@type': 'WebSite',
+        url: siteUrl,
+        name: 'Rocketpedia'
+      }
+      // If it evolves into a Q&A page, you could add:
+      // mainEntity: { '@type': 'Question', name: 'What is your question about rockets?' }
+    };
+
+    let script = document.getElementById('ai-expert-json-ld');
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'ai-expert-json-ld';
+      script.type = 'application/ld+json';
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(jsonLd);
+    
+    return () => { // Cleanup JSON-LD script
+        const ldScript = document.getElementById('ai-expert-json-ld');
+        if (ldScript) ldScript.remove();
+    };
+
+  }, []);
+
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -42,7 +110,7 @@ export default function AiExpertPage() {
   async function onSubmit(data: z.infer<typeof FormSchema>) {
     setIsLoading(true);
     setError(null);
-    setAnswer(null); // Clear previous answer
+    setAnswer(null);
 
     try {
       const result = await rocketExpert({ question: data.question });
@@ -50,7 +118,6 @@ export default function AiExpertPage() {
     } catch (err) {
       console.error('Error calling AI expert:', err);
       setError('Sorry, I encountered an error trying to answer your question. Please try again.');
-      // Consider more specific error handling if needed
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +146,7 @@ export default function AiExpertPage() {
                       <Textarea
                         placeholder="e.g., Explain the difference between RP-1 and Methane fuel..."
                         className="resize-none"
-                        rows={4} // Adjust rows as needed
+                        rows={4}
                         {...field}
                         disabled={isLoading}
                       />

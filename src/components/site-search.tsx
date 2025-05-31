@@ -32,7 +32,9 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
   const [dataLoading, setDataLoading] = useState(true); // For initial data fetch
   const [error, setError] = useState<string | null>(null);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const popoverContentRef = useRef<HTMLDivElement>(null); // Ref for PopoverContent
+  const popoverContentRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
 
   // Fetch initial data on mount
   useEffect(() => {
@@ -76,19 +78,22 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
     }
 
     if (dataLoading) {
-        setIsLoading(true); // Show loading if initial data isn't ready
+        setIsLoading(true); 
         return;
     }
 
     setIsLoading(true);
-    setIsPopoverOpen(true); // Open popover when typing starts
+    // Ensure popover opens as soon as there's a query and data is not loading.
+    // This prevents opening it while initial data is still being fetched.
+    if (!dataLoading) {
+        setIsPopoverOpen(true);
+    }
 
-    // Debounce filtering slightly to avoid excessive processing on rapid typing
+
     const debounceTimeout = setTimeout(() => {
         const lowerCaseQuery = query.toLowerCase();
         let combinedResults: SearchResult[] = [];
 
-        // Filter Rockets if scope allows
         if (searchScope === 'all' || searchScope === 'rockets') {
             const filteredRockets = allRockets
             .filter(
@@ -103,7 +108,6 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
         }
 
 
-        // Filter Agencies if scope allows
         if (searchScope === 'all' || searchScope === 'agencies') {
             const filteredAgencies = allAgencies
             .filter(
@@ -118,27 +122,25 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
         }
 
 
-        // Optional: Sort results (e.g., by name)
         combinedResults.sort((a, b) => a.name.localeCompare(b.name));
-
         setResults(combinedResults);
         setIsLoading(false);
-    }, 150); // 150ms debounce
+    }, 150); 
 
-    // Cleanup function to clear timeout if query changes before debounce triggers
     return () => clearTimeout(debounceTimeout);
 
   }, [query, allRockets, allAgencies, dataLoading, searchScope]);
 
 
-  // Close popover if clicked outside
    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-          if (popoverContentRef.current && !popoverContentRef.current.contains(event.target as Node)) {
-            // Check if the click target is the input itself - Popover handles this
-            // if ((event.target as HTMLElement)?.closest('[data-radix-popover-trigger]') === null) {
-            //     setIsPopoverOpen(false);
-            // }
+          if (
+            popoverContentRef.current &&
+            !popoverContentRef.current.contains(event.target as Node) &&
+            inputRef.current &&
+            !inputRef.current.contains(event.target as Node)
+          ) {
+            setIsPopoverOpen(false);
           }
         };
 
@@ -150,8 +152,7 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
 
 
   return (
-     <div className="w-full max-w-xl"> {/* Container to manage width */}
-      {/* Use PopoverAnchor to bind PopoverContent to Input */}
+     <div className="w-full max-w-xl">
       <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
          <PopoverAnchor asChild>
              <div className="relative flex-grow">
@@ -159,6 +160,7 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none"
                  />
                  <Input
+                    ref={inputRef}
                     type="search"
                     placeholder={
                       searchScope === 'rockets' ? "Search rockets..." :
@@ -167,28 +169,27 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
                     }
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    onFocus={() => { if (query) setIsPopoverOpen(true)}} // Re-open on focus if there's a query
+                    onFocus={() => { if (query && !dataLoading) setIsPopoverOpen(true)}}
                     className="pl-10 w-full"
                     aria-label="Search Rocketpedia"
-                    disabled={dataLoading} // Disable while initial data loads
+                    disabled={dataLoading}
                  />
-                 {dataLoading && ( // Show loader inside input during initial fetch
+                 {dataLoading && (
                     <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground animate-spin" />
                  )}
              </div>
          </PopoverAnchor>
 
-         {/* Use Portal to avoid layout issues, manage width */}
          <PopoverContent
             ref={popoverContentRef}
-            className="w-[--radix-popover-trigger-width] max-h-[400px] overflow-hidden p-0" // Match trigger width, control height
-            align="start" // Align start of content with start of trigger
-            sideOffset={8} // Space between trigger and content
-            onOpenAutoFocus={(e) => e.preventDefault()} // Prevent stealing focus
+            className="w-[--radix-popover-trigger-width] max-h-[400px] overflow-hidden p-0"
+            align="start"
+            sideOffset={8}
+            onOpenAutoFocus={(e) => e.preventDefault()}
          >
-            <ScrollArea className="h-full max-h-[390px]"> {/* Scroll within the bounded height */}
+            <ScrollArea className="h-full max-h-[390px]">
              <div className="p-2">
-                 {isLoading && !dataLoading && ( // Show loading only during filtering, not initial fetch
+                 {isLoading && !dataLoading && (
                      <div className="flex items-center justify-center p-4 text-muted-foreground">
                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Searching...
                      </div>
@@ -202,29 +203,33 @@ export function SiteSearch({ searchScope = 'all' }: SiteSearchProps) {
                      </div>
                  )}
                 {!isLoading && !error && results.length > 0 && (
-                <div className="space-y-1">
-                    {results.slice(0, 10).map((item) => ( // Limit results shown
+                <div className="space-y-0.5"> {/* Reduced space for tighter list */}
+                    {results.slice(0, 10).map((item) => (
                     <Link
-                        key={`${item.type}-${item.id || item.name}`} // Use unique key
-                        href={item.type === 'rocket' ? `/explore/${slugify(item.name)}` : `/agencies#${slugify(item.name)}`} // Link to rocket detail or agency list page (with anchor for agencies)
+                        key={`${item.type}-${item.id || item.name}`}
+                        href={item.type === 'rocket' ? `/explore/${slugify(item.name)}` : `/agencies#${slugify(item.name)}`}
                         passHref
-                        onClick={() => setIsPopoverOpen(false)} // Close popover on click
+                        onClick={() => {
+                            setQuery(''); // Clear query on selection
+                            setIsPopoverOpen(false);
+                        }}
+                        className="block p-2 rounded-md hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none transition-colors" // Make whole item focusable/hoverable
                     >
-                        <div className="flex items-center gap-3 p-2 rounded-md hover:bg-accent transition-colors cursor-pointer text-sm">
-                        {item.type === 'rocket' ? (
-                            <Rocket className="h-4 w-4 text-primary flex-shrink-0" />
-                        ) : (
-                            <Building className="h-4 w-4 text-secondary flex-shrink-0" />
-                        )}
-                        <div className="flex-grow overflow-hidden">
-                            <span className="font-medium truncate block">{item.name}</span>
-                             {item.type === 'rocket' && 'operator' in item && (
-                                <span className="text-xs text-muted-foreground truncate block">{item.operator} ({item.country})</span>
-                             )}
-                             {item.type === 'agency' && 'country' in item && (
-                                <span className="text-xs text-muted-foreground truncate block">{item.country} ({item.type === 'Public' || item.type === 'Private' ? item.type : 'N/A' })</span>
-                             )}
-                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                            {item.type === 'rocket' ? (
+                                <Rocket className="h-4 w-4 text-primary flex-shrink-0" />
+                            ) : (
+                                <Building className="h-4 w-4 text-secondary flex-shrink-0" />
+                            )}
+                            <div className="flex-grow overflow-hidden">
+                                <span className="font-medium truncate block">{item.name}</span>
+                                {item.type === 'rocket' && 'operator' in item && (
+                                    <span className="text-xs text-muted-foreground truncate block">{item.operator} ({item.country})</span>
+                                )}
+                                {item.type === 'agency' && 'country' in item && (
+                                    <span className="text-xs text-muted-foreground truncate block">{item.country} ({item.type === 'Public' || item.type === 'Private' ? item.type : 'N/A' })</span>
+                                )}
+                            </div>
                         </div>
                     </Link>
                     ))}

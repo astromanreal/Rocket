@@ -1,5 +1,7 @@
+
 'use client';
 
+import type { Metadata, ResolvingMetadata } from 'next';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
@@ -7,17 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar, CheckCircle, Gauge, Globe, Building, Users, Rocket, XCircle, HelpCircle } from 'lucide-react';
-import { getRockets, type Rocket as RocketType, type RocketStatus } from '@/services/rocket-data';
+import { getRockets, type Rocket as RocketType, type RocketStatus, slugify } from '@/services/rocket-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
-// Helper to format numbers (e.g., success rate)
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+
 const formatNumber = (num: number | undefined): string => {
   if (num === undefined) return 'N/A';
   return num % 1 === 0 ? num.toString() : num.toFixed(1);
 };
 
-// Helper to get status icon
 const getStatusIcon = (status: RocketStatus | undefined) => {
     switch (status) {
       case 'active': return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -27,7 +29,17 @@ const getStatusIcon = (status: RocketStatus | undefined) => {
     }
 };
 
-// Skeleton Loader for Rocket Detail Page
+// This function is intended for Server Components. For client components, metadata is typically
+// set using useEffect to update document.title or by a parent Server Component.
+// If this page becomes a Server Component, `generateMetadata` will work as expected.
+// For now, dynamic title setting is handled in `useEffect` within the component.
+//
+// export async function generateMetadata(
+//   { params }: { params: { rocketName: string } },
+//   parent: ResolvingMetadata
+// ): Promise<Metadata> { ... }
+// The above comment block is retained for future reference if converting to Server Component.
+
 function RocketDetailSkeleton() {
   return (
     <div className="container mx-auto px-4 py-12">
@@ -80,25 +92,111 @@ export default function RocketDetailPage() {
       setError(null);
       try {
         const allRockets = await getRockets();
-        // Find the rocket by comparing the slugified name
         const foundRocket = allRockets.find(
-          (r) => r.name.toLowerCase().replace(/\s+/g, '-') === rocketNameSlug
+          (r) => slugify(r.name) === rocketNameSlug
         );
 
         if (foundRocket) {
           setRocket(foundRocket);
+          
+          // Dynamic metadata for client component
+          document.title = `${foundRocket.name} - Details & Specs | Rocketpedia`;
+          
+          const canonicalUrl = `${siteUrl}/explore/${rocketNameSlug}`;
+          const imageUrl = foundRocket.imageUrl ? (foundRocket.imageUrl.startsWith('http') ? foundRocket.imageUrl : `${siteUrl}${foundRocket.imageUrl}`) : `${siteUrl}/og-rocket-default.png`;
+
+          const setMetaTag = (type: 'property' | 'name', key: string, content: string) => {
+            let element = document.querySelector(`meta[${type}='${key}']`) as HTMLMetaElement;
+            if (!element) {
+                element = document.createElement('meta');
+                element.setAttribute(type, key);
+                document.head.appendChild(element);
+            }
+            element.setAttribute('content', content);
+          };
+          
+          let canonicalLink = document.querySelector("link[rel='canonical']");
+          if (!canonicalLink) {
+              canonicalLink = document.createElement('link');
+              canonicalLink.setAttribute('rel', 'canonical');
+              document.head.appendChild(canonicalLink);
+          }
+          canonicalLink.setAttribute('href', canonicalUrl);
+
+          setMetaTag('name', 'description', `Explore detailed information, specifications, and history of the ${foundRocket.name} launch vehicle. Operated by ${foundRocket.operator}.`);
+          setMetaTag('name', 'keywords', [foundRocket.name, foundRocket.operator, foundRocket.type, foundRocket.country, 'rocket details', 'launch vehicle specs', 'spacecraft'].join(', '));
+          
+          setMetaTag('property', 'og:title', `${foundRocket.name} - Rocket Details | Rocketpedia`);
+          setMetaTag('property', 'og:description', foundRocket.description.substring(0, 160) + '...');
+          setMetaTag('property', 'og:url', canonicalUrl);
+          setMetaTag('property', 'og:image', imageUrl);
+          setMetaTag('property', 'og:type', 'article');
+          
+          setMetaTag('name', 'twitter:card', 'summary_large_image');
+          setMetaTag('name', 'twitter:title', `${foundRocket.name} - Rocket Details | Rocketpedia`);
+          setMetaTag('name', 'twitter:description', foundRocket.description.substring(0, 160) + '...');
+          setMetaTag('name', 'twitter:image', imageUrl);
+
+
+          const jsonLd = {
+            '@context': 'https://schema.org',
+            '@type': 'TechArticle',
+            name: foundRocket.name,
+            headline: `${foundRocket.name} - Details, Specifications & History`,
+            description: foundRocket.description,
+            image: imageUrl,
+            datePublished: foundRocket.firstLaunchDate,
+            author: {
+              '@type': 'Organization',
+              name: foundRocket.operator,
+            },
+            keywords: [foundRocket.name, foundRocket.operator, foundRocket.type, foundRocket.country, 'rocket details', 'launch vehicle specs'].join(', '),
+            mainEntityOfPage: {
+                '@type': 'WebPage',
+                '@id': canonicalUrl,
+            },
+            additionalProperty: [
+                { '@type': 'PropertyValue', name: 'Rocket Type', value: foundRocket.type },
+                { '@type': 'PropertyValue', name: 'Country of Origin', value: foundRocket.country },
+                { '@type': 'PropertyValue', name: 'Operator', value: foundRocket.operator },
+                { '@type': 'PropertyValue', name: 'Stages', value: foundRocket.stages.toString() },
+                { '@type': 'PropertyValue', name: 'Payload Capacity to LEO', value: foundRocket.payloadCapacity },
+                { '@type': 'PropertyValue', name: 'Total Launches', value: foundRocket.totalLaunches.toString() },
+                { '@type': 'PropertyValue', name: 'Success Rate', value: `${formatNumber(foundRocket.successRate)}%` },
+                { '@type': 'PropertyValue', name: 'Status', value: foundRocket.status },
+            ]
+          };
+
+          let script = document.getElementById('rocket-detail-json-ld');
+          if (!script) {
+            script = document.createElement('script');
+            script.id = 'rocket-detail-json-ld';
+            script.type = 'application/ld+json';
+            document.head.appendChild(script);
+          }
+          script.textContent = JSON.stringify(jsonLd);
+
         } else {
           setError(`Rocket "${rocketNameSlug.replace(/-/g, ' ')}" not found.`);
+          document.title = 'Rocket Not Found | Rocketpedia';
         }
       } catch (err) {
         console.error("Failed to fetch rocket data:", err);
         setError("Failed to load rocket details. Please try again later.");
+        document.title = 'Error | Rocketpedia';
       } finally {
         setLoading(false);
       }
     }
 
     loadRocketData();
+    
+    return () => { // Cleanup JSON-LD script on unmount
+        const ldScript = document.getElementById('rocket-detail-json-ld');
+        if (ldScript) {
+          ldScript.remove();
+        }
+    };
   }, [rocketNameSlug]);
 
   if (loading) {
@@ -126,7 +224,6 @@ export default function RocketDetailPage() {
   }
 
   if (!rocket) {
-    // This case should ideally be handled by the error state, but included for safety
      return (
       <div className="container mx-auto px-4 py-12 text-center text-muted-foreground">
         <p>Rocket data not available.</p>
@@ -144,10 +241,10 @@ export default function RocketDetailPage() {
       <Card className="max-w-4xl mx-auto overflow-hidden">
         <CardHeader className="bg-card/50 border-b">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-            <CardTitle className="text-3xl font-bold flex items-center gap-2">
+            <h1 className="text-3xl font-bold flex items-center gap-2"> 
                 <Rocket className="h-7 w-7 text-primary" />
                 {rocket.name}
-            </CardTitle>
+            </h1>
              <Badge variant={rocket.status === 'active' ? 'default' : rocket.status === 'past' ? 'destructive' : 'secondary'} className="capitalize text-sm px-3 py-1">
                 {getStatusIcon(rocket.status)}
                 <span className="ml-1.5">{rocket.status}</span>
@@ -159,11 +256,13 @@ export default function RocketDetailPage() {
           {rocket.imageUrl && (
             <div className="relative h-64 md:h-96 w-full mb-8 rounded-md overflow-hidden shadow-md">
               <Image
-                src={rocket.imageUrl || 'https://picsum.photos/800/600'}
-                alt={`Image of ${rocket.name}`}
-                layout="fill"
-                objectFit="cover"
+                src={rocket.imageUrl || 'https://placehold.co/800x600.png'}
+                alt={`Image of ${rocket.name} rocket`}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                style={{ objectFit: 'cover' }}
                  data-ai-hint={`rocket ${rocket.type} launch`}
+                 priority
               />
             </div>
           )}
@@ -180,10 +279,12 @@ export default function RocketDetailPage() {
              <div className="flex items-center"><CheckCircle className="mr-2 h-4 w-4 text-muted-foreground" /> <strong>Success Rate:</strong> <span className="ml-1">{formatNumber(rocket.successRate)}%</span></div>
           </div>
 
-          <h3 className="font-semibold text-lg mb-2 mt-6">Description</h3>
-          <p className="text-base text-foreground/90 leading-relaxed">
-            {rocket.description}
-          </p>
+          <h2 className="font-semibold text-lg mb-2 mt-6">Description</h2>
+          <article> 
+            <p className="text-base text-foreground/90 leading-relaxed">
+                {rocket.description}
+            </p>
+          </article>
 
         </CardContent>
       </Card>

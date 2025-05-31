@@ -1,17 +1,16 @@
 
-
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowRight, Rocket as RocketIcon, Star, Search as SearchIcon } from 'lucide-react'; // Changed import alias to avoid conflict, Added SearchIcon
-import { getRockets, type Rocket as RocketType } from '@/services/rocket-data'; // Import data fetching
-import { RocketOfTheDayCard } from '@/components/rocket-of-the-day-card'; // Import the new component
-import { ImageSlider } from '@/components/image-slider'; // Import the ImageSlider component
-import { SiteSearch } from '@/components/site-search'; // Import the SiteSearch component
+import { ArrowRight, Rocket as RocketIcon, Star, Search as SearchIcon } from 'lucide-react';
+import { getRockets, type Rocket as RocketType } from '@/services/rocket-data';
+import { RocketOfTheDayCard } from '@/components/rocket-of-the-day-card';
+import { ImageSlider } from '@/components/image-slider';
+import { SiteSearch } from '@/components/site-search';
 
-// Helper function to get day of the year
 function getDayOfYear(date: Date): number {
   const start = new Date(date.getFullYear(), 0, 0);
   const diff = (date.getTime() - start.getTime()) + ((start.getTimezoneOffset() - date.getTimezoneOffset()) * 60 * 1000);
@@ -19,13 +18,50 @@ function getDayOfYear(date: Date): number {
   return Math.floor(diff / oneDay);
 }
 
-// Make the Home component async to fetch data
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
+
+export const metadata: Metadata = {
+  title: 'Welcome to Rocketpedia - Explore the Cosmos & Rocket Technology',
+  description: 'Rocketpedia is your ultimate launchpad to explore rockets, space missions, and the pioneers of space exploration. Discover daily features, rocket anatomy, merchandise, and engage with our community.',
+  keywords: ['rocketpedia homepage', 'space exploration guide', 'rocket database', 'daily rocket feature', 'space news', 'rocket merchandise', 'space community'],
+  alternates: {
+    canonical: siteUrl,
+  },
+  openGraph: {
+    title: 'Welcome to Rocketpedia - Explore the Cosmos & Rocket Technology',
+    description: 'Your ultimate launchpad to explore rockets, space missions, merchandise, and engage with our community.',
+    url: siteUrl,
+    images: [{ url: `${siteUrl}/og-home.png`, alt: 'Rocketpedia Homepage Space Theme' }], 
+  },
+   twitter: {
+    title: 'Welcome to Rocketpedia - Explore the Cosmos & Rocket Technology',
+    description: 'Your ultimate launchpad to explore rockets, space missions, merchandise, and engage with our community.',
+    images: [`${siteUrl}/twitter-home.png`], 
+  },
+  other: {
+    'application/ld+json': JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      url: siteUrl,
+      name: 'Welcome to Rocketpedia - Explore the Cosmos & Rocket Technology',
+      description: 'Rocketpedia is your ultimate launchpad to explore rockets, space missions, and the pioneers of space exploration. Discover daily features, rocket anatomy, merchandise, and engage with our community.',
+      isPartOf: {
+        '@type': 'WebSite',
+        url: siteUrl,
+        name: 'Rocketpedia'
+      },
+      // Potentially add mainContentOfPage if specific sections are key
+    }),
+  },
+};
+
+
 export default async function Home() {
   const rockets = await getRockets();
   
   let rocketOfTheDay: RocketType | undefined = undefined;
   if (rockets.length > 0) {
-    const currentDate = new Date(); // This will be the server's date
+    const currentDate = new Date();
     const dayOfYear = getDayOfYear(currentDate);
     const rocketIndex = dayOfYear % rockets.length;
     rocketOfTheDay = rockets[rocketIndex];
@@ -40,26 +76,32 @@ export default async function Home() {
           Rocketpedia
         </h1>
         <p className="text-lg md:text-xl text-muted-foreground mb-8">
-          Everything You Need to Know About Rockets
+          Everything You Need to Know About Rockets & Space Exploration
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/explore">
-              <Button size="lg" className="w-full sm:w-auto">
-                Explore Rockets <ArrowRight className="ml-2 h-5 w-5" />
+            <Link href="/explore" passHref>
+              <Button size="lg" className="w-full sm:w-auto group relative overflow-hidden shadow-lg transition-all duration-300 ease-out hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 active:shadow-md">
+                <span className="relative z-10 flex items-center">
+                    Explore Rockets <ArrowRight className="ml-2 h-5 w-5" />
+                </span>
+                 <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 bottom-0 h-1.5 bg-primary/70 transition-transform duration-300 ease-out group-hover:scale-y-150"
+                 ></span>
               </Button>
             </Link>
         </div>
       </section>
 
-      {/* Search Section */}
       <section className="mb-16 flex flex-col items-center animate-launch" style={{ animationDelay: '0.05s' }}>
-        <h2 className="text-2xl font-bold mb-4 flex items-center justify-center gap-2">
-          <SearchIcon className="h-6 w-6 text-primary" /> Search Rocketpedia
-        </h2>
-        <SiteSearch searchScope="rockets" />
+        <Link href="/search" passHref className="group">
+          <h2 className="text-2xl font-bold mb-4 flex items-center justify-center gap-2 hover:text-primary transition-colors">
+            <SearchIcon className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" /> Search Rocketpedia
+          </h2>
+        </Link>
+        <SiteSearch searchScope="all" />
       </section>
 
-      {/* Rocket of the Day Section */}
       {rocketOfTheDay && (
         <section className="mb-16 animate-launch" style={{ animationDelay: '0.1s' }}>
            <h2 className="text-3xl font-bold text-center mb-4 flex items-center justify-center gap-2">
@@ -72,7 +114,6 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Image Slider Section */}
       <section className="mb-16 animate-launch" style={{ animationDelay: '0.15s' }}>
         <h2 className="text-3xl font-bold text-center mb-8">Gallery</h2>
         <ImageSlider />
@@ -90,8 +131,8 @@ export default async function Home() {
               Rockets are vehicles or projectiles that obtain thrust from a rocket engine. Rocket engine exhaust is formed entirely from propellant carried within the rocket. They work based on Newton's Third Law of Motion: for every action, there is an equal and opposite reaction.
             </p>
             <Image
-              src="https://cdn.pixabay.com/photo/2012/11/28/10/34/rocket-launch-67643_1280.jpg"
-              alt="Rocket Launch Diagram"
+              src="https://i.pinimg.com/736x/bb/b1/29/bbb12906fb28717de83f891939de47e3.jpg"
+              alt="Rocket launching from a pad illustrating Newton's Third Law in action"
               width={600}
               height={400}
               className="rounded-md object-cover w-full h-auto"
@@ -173,7 +214,7 @@ export default async function Home() {
             </div>
              <Image
               src="https://cdn.pixabay.com/photo/2015/03/26/18/45/hangar-693277_1280.jpg"
-              alt="Rocket Cutaway"
+              alt="Rocket assembly hangar showing multiple rocket components"
               width={800}
               height={300}
               className="rounded-md object-cover w-full h-auto mt-6"
@@ -223,4 +264,3 @@ export default async function Home() {
     </div>
   );
 }
-
