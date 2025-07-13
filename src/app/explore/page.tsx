@@ -1,4 +1,3 @@
-
 // src/app/explore/page.tsx
 'use client'; 
 
@@ -7,14 +6,25 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Calendar, Gauge, Globe, Building, CheckCircle, XCircle, HelpCircle, Search, FilterX } from 'lucide-react';
-import Image from 'next/image';
+import { Rocket, Calendar, Gauge, Globe, Building, CheckCircle, XCircle, HelpCircle, Search, FilterX, History, Zap, Filter } from 'lucide-react';
 import { getRockets, type Rocket as RocketType, type RocketStatus, slugify } from '@/services/rocket-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link'; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useCountUp } from '@/hooks/use-count-up';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
 const explorePageUrl = `${siteUrl}/explore`;
@@ -44,20 +54,6 @@ function RocketCard({ rocket }: RocketCardProps) {
   return (
     <Card className={`flex flex-col h-full hover:shadow-lg transition-shadow duration-200 animate-launch group relative`}>
       <CardHeader>
-        {rocket.imageUrl && (
-          <Link href={`/explore/${rocketSlug}`} passHref className="block relative h-48 w-full mb-4 overflow-hidden rounded-t-md">
-              <Image
-                src={rocket.imageUrl || 'https://placehold.co/400x300.png'}
-                alt={`Image of ${rocket.name} rocket`}
-                fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                style={{ objectFit: 'cover' }}
-                className="transition-transform duration-300 group-hover:scale-105"
-                data-ai-hint={`rocket ${rocket.type}`}
-                priority 
-              />
-          </Link>
-        )}
         <CardTitle className="flex items-center justify-between">
           <Link href={`/explore/${rocketSlug}`} passHref className="hover:text-primary transition-colors">
             {rocket.name}
@@ -72,11 +68,11 @@ function RocketCard({ rocket }: RocketCardProps) {
       <CardContent className="flex-grow space-y-2 text-sm">
         <div className="flex items-center"><Rocket className="mr-2 h-4 w-4 text-muted-foreground" /> Type: {rocket.type}</div>
         <div className="flex items-center"><Gauge className="mr-2 h-4 w-4 text-muted-foreground" /> Stages: {rocket.stages}</div>
-        <div className="flex items-center"><Globe className="mr-2 h-4 w-4 text-muted-foreground" /> Payload: {rocket.payloadCapacity}</div>
+        <div className="flex items-center"><Globe className="mr-2 h-4 w-4 text-muted-foreground" /> Payload to LEO: {rocket.payloadCapacity?.LEO || 'N/A'}</div>
         <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" /> Ownership: {rocket.ownership}</div>
          <p className="text-xs text-muted-foreground pt-2 line-clamp-3">{rocket.description}</p>
       </CardContent>
-      <CardFooter className="text-xs text-muted-foreground justify-between">
+      <CardFooter className="text-xs text-muted-foreground justify-between mt-auto">
          <div className="flex items-center" title={`First Launch: ${rocket.firstLaunchDate}`}>
              <Calendar className="mr-1 h-3 w-3" /> {rocket.firstLaunchDate.substring(0, 4)} - {rocket.lastLaunchDate ? rocket.lastLaunchDate.substring(0, 4) : 'Present'}
         </div>
@@ -97,7 +93,6 @@ function RocketCardSkeleton() {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader>
-        <Skeleton className="h-48 w-full mb-4" />
         <Skeleton className="h-6 w-3/4 mb-2" />
         <Skeleton className="h-4 w-1/2" />
       </CardHeader>
@@ -108,7 +103,7 @@ function RocketCardSkeleton() {
         <Skeleton className="h-4 w-4/5" />
          <Skeleton className="h-10 w-full mt-2" />
       </CardContent>
-      <CardFooter className="justify-between">
+      <CardFooter className="justify-between mt-auto">
         <Skeleton className="h-4 w-1/3" />
         <Skeleton className="h-4 w-1/4" />
       </CardFooter>
@@ -117,6 +112,17 @@ function RocketCardSkeleton() {
       </CardFooter>
     </Card>
   );
+}
+
+function AnimatedStatCard({ count, title, icon: Icon }: { count: number; title: string; icon: React.ElementType }) {
+    const displayCount = useCountUp(count);
+    return (
+        <Card className="text-center p-4 bg-muted/30">
+            <Icon className="h-8 w-8 mx-auto text-primary mb-2"/>
+            <p className="text-3xl font-bold">{displayCount}</p>
+            <p className="text-sm text-muted-foreground">{title}</p>
+        </Card>
+    );
 }
 
 export default function ExplorePage() {
@@ -128,6 +134,7 @@ export default function ExplorePage() {
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedLiftType, setSelectedLiftType] = useState<string>('all');
+  const [showFilterFab, setShowFilterFab] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -184,10 +191,12 @@ export default function ExplorePage() {
     loadRockets();
   }, [toast]);
 
-  const { availableYears, availableCountries, availableLiftTypes } = useMemo(() => {
+  const { availableYears, availableCountries, availableLiftTypes, counts } = useMemo(() => {
     const years = new Set<string>();
     const countries = new Set<string>();
     const liftTypes = new Set<string>();
+    const statusCounts = { active: 0, past: 0, future: 0 };
+
 
     rockets.forEach(rocket => {
       if (rocket.firstLaunchDate) {
@@ -204,12 +213,17 @@ export default function ExplorePage() {
         else if (typeLower.includes('super heavy')) liftTypes.add('Super heavy-lift');
         else liftTypes.add(rocket.type); 
       }
+      statusCounts[rocket.status]++;
     });
 
     return {
       availableYears: ['all', ...Array.from(years).sort((a, b) => parseInt(b) - parseInt(a))],
       availableCountries: ['all', ...Array.from(countries).sort()],
       availableLiftTypes: ['all', ...Array.from(liftTypes).sort()],
+      counts: {
+          total: rockets.length,
+          ...statusCounts
+      }
     };
   }, [rockets]);
 
@@ -317,10 +331,104 @@ export default function ExplorePage() {
 
   const hasActiveFilters = searchTerm || selectedStatus !== 'all' || selectedYear !== 'all' || selectedCountry !== 'all' || selectedLiftType !== 'all';
 
+  const totalCount = useCountUp(counts.total);
+
+  // Scroll listener for FAB
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 350) { // Show FAB after scrolling 350px
+        setShowFilterFab(true);
+      } else {
+        setShowFilterFab(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+
+  const FilterControls = ({ inDialog = false }: { inDialog?: boolean }) => (
+     <div className={cn(inDialog ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4")}>
+        <div>
+            <Label htmlFor="filter-status" className="text-xs text-muted-foreground">Status</Label>
+            <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as RocketStatus | 'all')}>
+                <SelectTrigger id="filter-status" className="w-full">
+                    <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="past">Past</SelectItem>
+                    <SelectItem value="future">Future</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+        <div>
+            <Label htmlFor="filter-year" className="text-xs text-muted-foreground">First Launch Year</Label>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger id="filter-year" className="w-full">
+                    <SelectValue placeholder="Select Year" />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableYears.map(year => (
+                        <SelectItem key={year} value={year}>{year === 'all' ? 'All Years' : year}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+        <div>
+            <Label htmlFor="filter-country" className="text-xs text-muted-foreground">Country</Label>
+            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                <SelectTrigger id="filter-country" className="w-full">
+                    <SelectValue placeholder="Select Country" />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableCountries.map(country => (
+                        <SelectItem key={country} value={country}>{country === 'all' ? 'All Countries' : country}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+        <div>
+            <Label htmlFor="filter-lift-type" className="text-xs text-muted-foreground">Lift Type</Label>
+            <Select value={selectedLiftType} onValueChange={setSelectedLiftType}>
+                <SelectTrigger id="filter-lift-type" className="w-full">
+                    <SelectValue placeholder="Select Lift Type" />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableLiftTypes.map(type => (
+                        <SelectItem key={type} value={type}>{type === 'all' ? 'All Types' : type}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
+    </div>
+  );
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 text-center">Explore Rockets</h1>
-      <div className="mb-8 p-4 border rounded-lg bg-card/50 shadow-sm sticky top-[70px] z-40 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+      <section className="text-center mb-8 animate-launch">
+        <Rocket className="mx-auto h-12 w-12 text-primary mb-4" />
+        <h1 className="text-4xl md:text-5xl font-bold">Explore the Fleet</h1>
+        <p className="text-lg text-muted-foreground mt-2">Discover launch vehicles from past, present, and future.</p>
+      </section>
+
+      {!loading && (
+        <section className="mb-10 animate-launch" style={{animationDelay: '0.1s'}}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div className="md:col-span-3 p-6 rounded-lg bg-card border shadow-lg">
+                    <h3 className="text-2xl font-semibold text-primary">Total Rockets in Database</h3>
+                    <p className="text-6xl font-bold tracking-tighter my-2">{totalCount}</p>
+                </div>
+                <AnimatedStatCard count={counts.active} title="Active Rockets" icon={Zap} />
+                <AnimatedStatCard count={counts.past} title="Historic Rockets" icon={History} />
+                <AnimatedStatCard count={counts.future} title="Future Rockets" icon={HelpCircle} />
+            </div>
+        </section>
+      )}
+      
+       <div className="mb-8 p-4 border rounded-lg bg-card/50 shadow-sm animate-launch" style={{animationDelay: '0.2s'}}>
          <div className="flex flex-col sm:flex-row gap-4 mb-4">
              <div className="relative flex-grow">
                  <Label htmlFor="search" className="sr-only">Search Rockets</Label>
@@ -340,66 +448,48 @@ export default function ExplorePage() {
                 </Button>
              )}
          </div>
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-             <div>
-                 <Label htmlFor="filter-status" className="text-xs text-muted-foreground">Status</Label>
-                 <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as RocketStatus | 'all')}>
-                     <SelectTrigger id="filter-status" className="w-full">
-                         <SelectValue placeholder="Select Status" />
-                     </SelectTrigger>
-                     <SelectContent>
-                         <SelectItem value="all">All Statuses</SelectItem>
-                         <SelectItem value="active">Active</SelectItem>
-                         <SelectItem value="past">Past</SelectItem>
-                         <SelectItem value="future">Future</SelectItem>
-                     </SelectContent>
-                 </Select>
-             </div>
-            <div>
-                <Label htmlFor="filter-year" className="text-xs text-muted-foreground">First Launch Year</Label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger id="filter-year" className="w-full">
-                        <SelectValue placeholder="Select Year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableYears.map(year => (
-                            <SelectItem key={year} value={year}>{year === 'all' ? 'All Years' : year}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-            <div>
-                <Label htmlFor="filter-country" className="text-xs text-muted-foreground">Country</Label>
-                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                    <SelectTrigger id="filter-country" className="w-full">
-                        <SelectValue placeholder="Select Country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableCountries.map(country => (
-                            <SelectItem key={country} value={country}>{country === 'all' ? 'All Countries' : country}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-             <div>
-                 <Label htmlFor="filter-lift-type" className="text-xs text-muted-foreground">Lift Type</Label>
-                <Select value={selectedLiftType} onValueChange={setSelectedLiftType}>
-                    <SelectTrigger id="filter-lift-type" className="w-full">
-                        <SelectValue placeholder="Select Lift Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableLiftTypes.map(type => (
-                            <SelectItem key={type} value={type}>{type === 'all' ? 'All Types' : type}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-             </div>
+         <div className="hidden lg:block">
+            <FilterControls />
          </div>
       </div>
+
        <RocketGrid
          loading={loading}
          rockets={filteredRockets}
         />
+        
+        {/* Floating Action Button for Filters */}
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button
+                    className={cn(
+                        "fixed bottom-6 right-6 lg:hidden h-14 w-14 rounded-full shadow-2xl transition-all duration-300 ease-in-out",
+                        showFilterFab ? "opacity-100 scale-100" : "opacity-0 scale-75 pointer-events-none"
+                    )}
+                    size="icon"
+                    aria-label="Open filters"
+                >
+                    <Filter className="h-6 w-6" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Filter Rockets</DialogTitle>
+                    <DialogDescription>
+                        Narrow down the list of rockets using the filters below.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <FilterControls inDialog={true} />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button">Apply Filters</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
     </div>
   );
 }

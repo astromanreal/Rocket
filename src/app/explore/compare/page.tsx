@@ -1,4 +1,3 @@
-
 // src/app/explore/compare/page.tsx
 'use client';
 
@@ -10,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Scale, AlertTriangle, Plus, Info as InfoIcon } from 'lucide-react';
-import { getRockets, type Rocket as RocketType } from '@/services/rocket-data';
+import { getRockets, type Rocket as RocketType, slugify } from '@/services/rocket-data';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,9 +19,6 @@ import { useToast } from '@/hooks/use-toast';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:9002';
 const comparePageUrl = `${siteUrl}/explore/compare`;
-
-// Helper to generate slug
-const slugify = (name: string): string => name.toLowerCase().replace(/\s+/g, '-');
 
 // Skeleton Loader for Comparison Page
 function ComparePageSkeleton() {
@@ -56,7 +52,7 @@ function ComparePageSkeleton() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...Array(8)].map((_, rowIndex) => (
+                {[...Array(12)].map((_, rowIndex) => (
                    <TableRow key={rowIndex}>
                       <TableCell className="font-medium sticky left-0 bg-card z-10">
                         <Skeleton className="h-5 w-24" />
@@ -81,18 +77,26 @@ function ComparePageSkeleton() {
 }
 
 // Helper to format various values consistently
-const formatValue = (value: string | number | null | undefined): string => {
+const formatValue = (value: any): string => {
   if (value === null || value === undefined || value === '') return 'N/A';
+  if (typeof value === 'object') {
+    let parts: string[] = [];
+    if ('LEO' in value && value.LEO) parts.push(`LEO: ${value.LEO}`);
+    if ('GTO' in value && value.GTO) parts.push(`GTO: ${value.GTO}`);
+    if ('Mars' in value && value.Mars) parts.push(`Mars: ${value.Mars}`);
+    if (parts.length > 0) return parts.join('\n');
+    return 'N/A';
+  }
   if (typeof value === 'number') {
-    if (value % 1 !== 0 && (value > 0 && value < 1000)) { 
-        return value.toFixed(1);
+    if (value % 1 !== 0 && (value > 0 && value < 1000)) {
+      return value.toFixed(1);
     }
     return value.toLocaleString();
   }
   if (typeof value === 'string' && ['active', 'past', 'future'].includes(value.toLowerCase())) {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
-  return value;
+  return String(value);
 };
 
 
@@ -207,19 +211,27 @@ export default function ComparePage() {
   }, [selectedRocketSlugs, allRockets]);
 
 
-   const comparisonFields: { label: string; key: keyof RocketType }[] = [
-    { label: 'Type', key: 'type' },
-    { label: 'Operator', key: 'operator' },
-    { label: 'Country', key: 'country' },
-    { label: 'Ownership', key: 'ownership' },
+   const comparisonFields: { label: string; key: keyof RocketType | `dimensions.${'height' | 'diameter' | 'mass'}` | `thrust.${'seaLevel' | 'vacuum'}` | `engines.${'firstStage' | 'secondStage'}` }[] = [
     { label: 'Status', key: 'status' },
-    { label: 'Stages', key: 'stages' },
-    { label: 'Payload Capacity', key: 'payloadCapacity' },
+    { label: 'Type', key: 'type' },
+    { label: 'Country', key: 'country' },
+    { label: 'First Launch', key: 'firstLaunchDate' },
     { label: 'Total Launches', key: 'totalLaunches' },
     { label: 'Success Rate', key: 'successRate' },
-    { label: 'First Launch', key: 'firstLaunchDate' },
-    { label: 'Last Launch', key: 'lastLaunchDate' },
+    { label: 'Height', key: 'dimensions.height' },
+    { label: 'Diameter', key: 'dimensions.diameter' },
+    { label: 'Mass', key: 'dimensions.mass' },
+    { label: 'Liftoff Thrust', key: 'thrust.seaLevel' },
+    { label: 'Payload Capacity', key: 'payloadCapacity' },
+    { label: 'Reusability', key: 'reusability' },
+    { label: '1st Stage Engines', key: 'engines.firstStage' },
+    { label: '2nd Stage Engines', key: 'engines.secondStage' },
   ];
+
+  // Helper to get nested properties
+  const getNestedValue = (obj: any, path: string) => {
+      return path.split('.').reduce((o, key) => (o && o[key] !== 'undefined' ? o[key] : undefined), obj);
+  };
 
 
   if (loading) {
@@ -323,8 +335,8 @@ export default function ComparePage() {
                                                     <Image
                                                         src={rocket.imageUrl || 'https://placehold.co/400x300.png'}
                                                         alt={`Official image of ${rocket.name}`}
-                                                        layout="fill"
-                                                        objectFit="cover"
+                                                        fill
+                                                        style={{ objectFit: 'cover' }}
                                                         className="transition-transform duration-300 group-hover:scale-105"
                                                         data-ai-hint={`rocket ${rocket.type}`}
                                                         sizes="(max-width: 768px) 100vw, 200px"
@@ -369,8 +381,9 @@ export default function ComparePage() {
                                 {selectedRocketSlugs.map((slug, index) => {
                                      const rocket = slug ? allRockets.find(r => slugify(r.name) === slug) : null;
                                      if (rocket) {
+                                        const value = getNestedValue(rocket, field.key);
                                         return (
-                                            <TableCell key={`${slug}-${field.key}`} className="text-center border-l">
+                                            <TableCell key={`${slug}-${field.key}`} className="text-center border-l text-sm whitespace-pre-wrap">
                                                 {field.key === 'status' ? (
                                                 <Badge
                                                     variant={rocket.status === 'active' ? 'default' : rocket.status === 'past' ? 'destructive' : 'secondary'}
@@ -379,9 +392,9 @@ export default function ComparePage() {
                                                     {formatValue(rocket.status)}
                                                 </Badge>
                                                 ) : field.key === 'successRate' ? (
-                                                  `${formatValue(rocket[field.key])}${typeof rocket[field.key] === 'number' ? '%' : ''}`
+                                                  `${formatValue(value)}${typeof value === 'number' ? '%' : ''}`
                                                 ) : (
-                                                formatValue(rocket[field.key])
+                                                formatValue(value)
                                                 )}
                                             </TableCell>
                                         );
@@ -399,13 +412,13 @@ export default function ComparePage() {
                             </TableRow>
                             ))}
                             <TableRow>
-                                <TableCell className="font-medium sticky left-0 bg-card z-10 shadow-sm align-top">Description</TableCell>
+                                <TableCell className="font-medium sticky left-0 bg-card z-10 shadow-sm align-top">Summary</TableCell>
                                 {selectedRocketSlugs.map((slug, index) => {
                                      const rocket = slug ? allRockets.find(r => slugify(r.name) === slug) : null;
                                      if (rocket) {
                                         return (
-                                            <TableCell key={`${slug}-description`} className="text-sm text-left max-w-xs whitespace-normal align-top border-l">
-                                                {rocket.description}
+                                            <TableCell key={`${slug}-summary`} className="text-sm text-left max-w-xs whitespace-normal align-top border-l">
+                                                {rocket.summary || rocket.description}
                                             </TableCell>
                                         );
                                      } else {

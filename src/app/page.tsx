@@ -247,7 +247,9 @@ export default async function Home() {
             <CardDescription>The changing landscape of space access</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="mb-4">Historically dominated by government agencies like NASA and Roscosmos, the space launch industry now sees significant involvement from private companies like SpaceX, Blue Origin, and Rocket Lab, driving innovation and reducing costs.</p>
+            <p className="mb-4">
+              Historically dominated by government agencies like NASA and Roscosmos, the space launch industry now sees significant involvement from private companies like SpaceX, Blue Origin, and Rocket Lab, driving innovation and reducing costs.
+            </p>
              <div className="flex justify-around">
                <div className="text-center">
                  <span className="text-sm text-muted-foreground">Government</span>

@@ -1,6 +1,8 @@
+
 'use server'; // Can be used in server components/actions if needed, though primarily client for now
 
 import { formatRelativeTime } from '@/lib/utils'; // Import formatting helper
+import { getRockets, type Rocket } from '@/services/rocket-data'; // Import rocket data service
 
 /**
  * Represents a user profile.
@@ -13,6 +15,7 @@ export interface UserProfile {
   email: string; // Usually obtained from auth, keep private if possible
   avatarUrl?: string;
   bio?: string;
+  exploredRocketIds: string[]; // New: Track IDs of explored rockets
 }
 
 /**
@@ -38,6 +41,7 @@ let mockUserDatabase: { [key: string]: UserProfile } = {
     email: 'user@example.com', // Placeholder
     avatarUrl: `https://picsum.photos/seed/defaultUser123/100/100`,
     bio: 'Rocket enthusiast and aspiring space explorer!',
+    exploredRocketIds: ['falcon-9', 'saturn-v'], // Initial explored rockets
   },
   // Example of another user if needed for testing posts
   'anotherUser456': {
@@ -46,6 +50,7 @@ let mockUserDatabase: { [key: string]: UserProfile } = {
     email: 'another@example.com',
     avatarUrl: `https://picsum.photos/seed/anotherUser456/100/100`,
     bio: 'Loves staring at the stars.',
+    exploredRocketIds: [],
   }
 };
 
@@ -81,9 +86,6 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 300));
 
-  console.log(`getUserProfile called for userId: ${userId}`); // Debug log
-  // console.log('Current mock database:', mockUserDatabase); // Debug log
-
    // Initialize default user if not present (e.g., after server restart)
    if (!mockUserDatabase['defaultUser123']) {
      mockUserDatabase['defaultUser123'] = {
@@ -92,6 +94,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
        email: 'user@example.com',
        avatarUrl: `https://picsum.photos/seed/defaultUser123/100/100`,
        bio: 'Rocket enthusiast and aspiring space explorer!',
+       exploredRocketIds: [],
      };
    }
     // Initialize another user if needed
@@ -102,6 +105,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
             email: 'another@example.com',
             avatarUrl: `https://picsum.photos/seed/anotherUser456/100/100`,
             bio: 'Loves staring at the stars.',
+            exploredRocketIds: [],
         };
     }
 
@@ -124,8 +128,6 @@ export async function updateUserProfile(
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  console.log(`updateUserProfile called for userId: ${userId} with updates:`, updates); // Debug log
-
   if (mockUserDatabase[userId]) {
     // IMPORTANT: Create a new object for the update to avoid direct mutation issues
     // if the mock database object is used elsewhere.
@@ -133,12 +135,37 @@ export async function updateUserProfile(
       ...mockUserDatabase[userId],
       ...updates, // Apply allowed updates
     };
-    console.log('Updated mock database:', mockUserDatabase); // Debug log
     return { ...mockUserDatabase[userId] }; // Return a copy
   } else {
-    console.warn(`User with ID ${userId} not found in mock database.`); // Debug log
     return null; // User not found
   }
+}
+
+/**
+ * Adds or removes a rocket from the user's explored list.
+ * @param userId The ID of the user.
+ * @param rocketId The ID of the rocket to toggle.
+ * @returns The updated list of explored rocket IDs.
+ */
+export async function toggleExploredRocket(userId: string, rocketId: string): Promise<string[]> {
+    await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
+
+    const user = mockUserDatabase[userId];
+    if (!user) {
+        throw new Error('User not found');
+    }
+
+    const exploredIds = new Set(user.exploredRocketIds);
+    if (exploredIds.has(rocketId)) {
+        exploredIds.delete(rocketId); // Untrack
+    } else {
+        exploredIds.add(rocketId); // Track
+    }
+
+    user.exploredRocketIds = Array.from(exploredIds);
+    mockUserDatabase[userId] = user;
+
+    return user.exploredRocketIds;
 }
 
 /**
@@ -154,3 +181,20 @@ export async function getCurrentUserId(): Promise<string> {
 }
 
 // Removed getUserPosts - it is now handled by src/services/forum-data.ts
+
+/**
+ * Retrieves the full rocket data for the user's explored rockets.
+ * @param userId The ID of the user.
+ * @returns A promise that resolves to an array of Rocket objects.
+ */
+export async function getExploredRockets(userId: string): Promise<Rocket[]> {
+  const user = await getUserProfile(userId);
+  if (!user || !user.exploredRocketIds || user.exploredRocketIds.length === 0) {
+    return [];
+  }
+
+  const allRockets = await getRockets();
+  const exploredRockets = allRockets.filter(rocket => user.exploredRocketIds.includes(rocket.id));
+
+  return exploredRockets;
+}

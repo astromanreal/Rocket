@@ -17,7 +17,7 @@ const formatNumber = (num: number | undefined): string => {
 };
 
 // Helper to generate slug
-const slugify = (name: string): string => name.toLowerCase().replace(/\s+/g, '-');
+const slugify = (name: string): string => name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 
 // Helper to get status icon
 const getStatusIcon = (status: RocketStatus) => {
@@ -43,7 +43,7 @@ export function RocketCard({ rocket }: RocketCardProps) {
         {rocket.imageUrl && (
           <Link href={`/explore/${slug}`} passHref className="block relative h-48 w-full mb-4 overflow-hidden rounded-t-md">
               <Image
-                src={rocket.imageUrl || 'https://picsum.photos/400/300'}
+                src={rocket.imageUrl || 'https://placehold.co/400x300.png'}
                 alt={`Image of ${rocket.name}`}
                 layout="fill"
                 objectFit="cover"
@@ -68,11 +68,11 @@ export function RocketCard({ rocket }: RocketCardProps) {
       <CardContent className="flex-grow space-y-2 text-sm">
         <div className="flex items-center"><Rocket className="mr-2 h-4 w-4 text-muted-foreground" /> Type: {rocket.type}</div>
         <div className="flex items-center"><Gauge className="mr-2 h-4 w-4 text-muted-foreground" /> Stages: {rocket.stages}</div>
-        <div className="flex items-center"><Globe className="mr-2 h-4 w-4 text-muted-foreground" /> Payload: {rocket.payloadCapacity}</div>
+        <div className="flex items-center"><Globe className="mr-2 h-4 w-4 text-muted-foreground" /> Payload to LEO: {rocket.payloadCapacity?.LEO || 'N/A'}</div>
         <div className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" /> Ownership: {rocket.ownership}</div>
          <p className="text-xs text-muted-foreground pt-2 line-clamp-3">{rocket.description}</p>
       </CardContent>
-      <CardFooter className="text-xs text-muted-foreground justify-between">
+      <CardFooter className="text-xs text-muted-foreground justify-between mt-auto">
          <div className="flex items-center" title={`First Launch: ${rocket.firstLaunchDate}`}>
              <Calendar className="mr-1 h-3 w-3" /> {rocket.firstLaunchDate.substring(0, 4)} - {rocket.lastLaunchDate ? rocket.lastLaunchDate.substring(0, 4) : 'Present'}
         </div>

@@ -58,11 +58,24 @@ const nextConfig: NextConfig = {
         hostname: 'www.nasa.gov', // Added for NASA images
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co', // Added for placeholder images
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'imgcdn.3dmgame.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
 };
 
 export default nextConfig;
+
 
 
